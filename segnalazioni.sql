@@ -35,6 +35,17 @@ drop policy if exists "leggo le mie segnalazioni" on public.segnalazioni;
 create policy "leggo le mie segnalazioni" on public.segnalazioni
   for select to authenticated using (auth.uid() = user_id);
 
+-- Chi scrive può correggere le sue finché non sono fatte, e cancellarle quando vuole
+drop policy if exists "modifico le mie segnalazioni" on public.segnalazioni;
+create policy "modifico le mie segnalazioni" on public.segnalazioni
+  for update to authenticated
+  using (auth.uid() = user_id and stato = 'nuova')
+  with check (auth.uid() = user_id and stato = 'nuova' and email is not distinct from (auth.jwt() ->> 'email'));
+
+drop policy if exists "cancello le mie segnalazioni" on public.segnalazioni;
+create policy "cancello le mie segnalazioni" on public.segnalazioni
+  for delete to authenticated using (auth.uid() = user_id);
+
 -- L'amministratore legge, segna come fatte e cancella tutte le segnalazioni
 drop policy if exists "l'amministratore legge tutto" on public.segnalazioni;
 create policy "l'amministratore legge tutto" on public.segnalazioni

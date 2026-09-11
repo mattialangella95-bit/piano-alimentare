@@ -838,6 +838,16 @@
     font-size:var(--fs-xs); color:var(--muted);
   }
   .fb-state{ font-weight:700; color:var(--clay); white-space:nowrap; }
+  .fb-right{ display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  .fb-icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:28px; height:28px; padding:0 6px;
+    border-radius:8px;
+    font-size:var(--fs-sm);
+    cursor:pointer;
+  }
+  .fb-icon.armed{ background:var(--clay); color:#fff; font-weight:700; }
+  .fb-cancel-edit[hidden]{ display:none; }
   .fb-item.done .fb-state{ color:var(--forest); }
   .fb-text{
     font-family:-apple-system, system-ui, sans-serif;
@@ -2721,6 +2731,8 @@ function initProfile(){
 // Tabelle "segnalazioni" e "amministratori" su Supabase (vedi segnalazioni.sql): ognuno legge le sue, l'amministratore tutte
 let isAdmin = false;
 let fbTipo = 'bug';
+let fbEditing = null;  // id della segnalazione che si sta modificando
+let myReports = [];
 const FB_TIPI = { bug: '🐞 Qualcosa non va', idea: '💡 Un\'idea' };
 
 // Si controlla all'accesso e ogni volta che si apre il Profilo (così non serve riaprire l'app)
@@ -2752,7 +2764,10 @@ function reportHTML(r, admin){
     <div class="fb-item${r.stato === 'fatta' ? ' done' : ''}">
       <div class="fb-top">
         <span>${r.tipo === 'idea' ? '💡' : '🐞'} ${escapeHtml(fbDate(r.creato))}${admin ? ` · ${escapeHtml(r.email || '')}` : ''}</span>
-        <span class="fb-state">${r.stato === 'fatta' ? 'Fatta ✓' : 'Nuova'}</span>
+        <span class="fb-right">
+          <span class="fb-state">${r.stato === 'fatta' ? 'Fatta ✓' : 'Nuova'}</span>
+          ${admin ? '' : `${r.stato !== 'fatta' ? `<span class="fb-icon" data-fb-edit="${r.id}" role="button" aria-label="Modifica">✏️</span>` : ''}<span class="fb-icon" data-fb-mydel="${r.id}" role="button" aria-label="Elimina">🗑</span>`}
+        </span>
       </div>
       <div class="fb-text">${escapeHtml(r.testo)}</div>
       ${admin ? `
@@ -2773,6 +2788,7 @@ function openFeedback(){
     <textarea class="profile-input fb-text" id="fbText" rows="3" maxlength="2000" placeholder="Cosa è successo e dove?"></textarea>
     <div class="profile-msg" id="fbMsg"></div>
     <div class="sheet-close edit-save" id="fbSend">Invia</div>
+    <div class="sheet-cancel fb-cancel-edit" id="fbCancelEdit" hidden>Annulla modifica</div>
     <h5>Le tue segnalazioni</h5>
     <div id="fbMine"><div class="sheet-hint">Carico…</div></div>
     <div class="sheet-cancel" id="fbClose">Chiudi</div>`;
@@ -2783,6 +2799,53 @@ function openFeedback(){
   }));
   document.getElementById('fbSend').addEventListener('click', sendFeedback);
   document.getElementById('fbClose').addEventListener('click', hideInfoSheet);
+  document.getElementById('fbCancelEdit').addEventListener('click', stopEditReport);
+  document.getElementById('fbMine').addEventListener('click', onMyReportClick);
+  fbEditing = null;
+  loadMyReports();
+}
+// ✏️ e 🗑 sulle proprie segnalazioni (il 🗑 chiede "Elimina?" e cancella al secondo tocco)
+function onMyReportClick(e){
+  const edit = e.target.closest('[data-fb-edit]');
+  if(edit){
+    const r = myReports.find(x => x.id === Number(edit.dataset.fbEdit));
+    if(r) startEditReport(r);
+    return;
+  }
+  const del = e.target.closest('[data-fb-mydel]');
+  if(!del) return;
+  if(!del.classList.contains('armed')){
+    del.classList.add('armed');
+    del.textContent = 'Elimina?';
+    setTimeout(() => { if(del.isConnected){ del.classList.remove('armed'); del.textContent = '🗑'; } }, 3000);
+    return;
+  }
+  deleteMyReport(Number(del.dataset.fbMydel));
+}
+function startEditReport(r){
+  fbEditing = r.id;
+  fbTipo = r.tipo;
+  const box = document.getElementById('fbText');
+  box.value = r.testo;
+  infoSheet.querySelectorAll('[data-fb-tipo]').forEach(c => c.classList.toggle('active', c.dataset.fbTipo === fbTipo));
+  document.getElementById('fbSend').textContent = 'Salva modifica';
+  document.getElementById('fbCancelEdit').hidden = false;
+  fbMsg('');
+  infoSheet.scrollTop = 0;
+  box.focus();
+}
+function stopEditReport(){
+  fbEditing = null;
+  document.getElementById('fbText').value = '';
+  document.getElementById('fbSend').textContent = 'Invia';
+  document.getElementById('fbCancelEdit').hidden = true;
+}
+async function deleteMyReport(id){
+  if(!navigator.onLine) return fbMsg('Serve internet per eliminarla.');
+  const { data, error } = await sb.from('segnalazioni').delete().eq('id', id).select('id');
+  if(error || !data || !data.length) return fbMsg('Non sono riuscito a eliminarla: riprova tra poco.');
+  if(fbEditing === id) stopEditReport();
+  fbMsg('Eliminata.', true);
   loadMyReports();
 }
 function fbMsg(text, ok){
@@ -2798,6 +2861,17 @@ async function sendFeedback(){
   if(!navigator.onLine) return fbMsg('Serve internet per inviare: il testo resta qui, riprova tra poco.');
   const btn = document.getElementById('fbSend');
   btn.style.pointerEvents = 'none';
+  if(fbEditing){
+    fbMsg('Salvo…', true);
+    const { data, error } = await sb.from('segnalazioni').update({ tipo: fbTipo, testo }).eq('id', fbEditing).select('id');
+    btn.style.pointerEvents = '';
+    if(error) return fbMsg('Non sono riuscito a salvarla: riprova tra poco. Il testo resta qui.');
+    if(!data || !data.length) return fbMsg('Non si può più modificare: forse Lænx l\'ha già segnata come fatta.');
+    stopEditReport();
+    fbMsg('Modificata ✓', true);
+    loadMyReports();
+    return;
+  }
   fbMsg('Invio…', true);
   const { error } = await sb.from('segnalazioni').insert({ tipo: fbTipo, testo, pagina: whereAmI() });
   btn.style.pointerEvents = '';
@@ -2813,6 +2887,7 @@ async function loadMyReports(){
   const box = document.getElementById('fbMine');
   if(!box) return;
   if(error){ box.innerHTML = `<div class="sheet-hint">${navigator.onLine ? 'Non riesco a caricarle adesso.' : 'Senza internet non posso mostrarle.'}</div>`; return; }
+  myReports = data;
   box.innerHTML = data.length ? data.map(r => reportHTML(r, false)).join('') : '<div class="sheet-hint">Ancora nessuna.</div>';
 }
 async function loadAdminReports(){
