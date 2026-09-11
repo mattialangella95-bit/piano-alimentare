@@ -2592,7 +2592,7 @@ function renderProfile(){
     <div class="sheet-close" id="profileCloseBtn">Chiudi</div>`;
   if(isAdmin) loadAdminReports();
 }
-function openProfile(){ renderProfile(); profileOverlay.classList.remove('hidden'); }
+function openProfile(){ renderProfile(); profileOverlay.classList.remove('hidden'); checkAdmin(); }
 function closeProfile(){ profileOverlay.classList.add('hidden'); }
 function refreshProfileIfOpen(){
   if(profileOverlay.classList.contains('hidden')) return;
@@ -2723,14 +2723,15 @@ let isAdmin = false;
 let fbTipo = 'bug';
 const FB_TIPI = { bug: '🐞 Qualcosa non va', idea: '💡 Un\'idea' };
 
+// Si controlla all'accesso e ogni volta che si apre il Profilo (così non serve riaprire l'app)
 async function checkAdmin(){
-  isAdmin = false;
   if(!currentUser || !navigator.onLine) return;
   const uid = currentUser.id;
-  const { data } = await sb.from('amministratori').select('user_id').eq('user_id', uid).maybeSingle();
-  if(!currentUser || currentUser.id !== uid) return;
+  const { data, error } = await sb.from('amministratori').select('user_id').eq('user_id', uid).maybeSingle();
+  if(error || !currentUser || currentUser.id !== uid) return;
+  const was = isAdmin;
   isAdmin = !!data;
-  refreshProfileIfOpen();
+  if(was !== isAdmin) refreshProfileIfOpen();
 }
 function deviceName(){
   const ua = navigator.userAgent;
