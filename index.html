@@ -814,6 +814,42 @@
     cursor:pointer;
   }
   .sheet-btn.on{ background:var(--forest); color:#fff; }
+  /* NUVOLETTA SEGNALAZIONI: piccola e discreta, in basso a sinistra (lì toccare per sbaglio non fa danni) */
+  .fb-fab{
+    position:fixed; z-index:25;
+    left:max(14px, calc(50% - 240px + 14px));
+    bottom:88px;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--paper);
+    border:1px solid var(--line);
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--fs-md);
+    opacity:0.55;
+    cursor:pointer;
+  }
+  .fb-fab:active{ opacity:1; }
+  textarea.fb-text{ margin-top:10px; }
+  .fb-item{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; background:var(--paper); }
+  .fb-item.done{ opacity:0.6; }
+  .fb-top{
+    display:flex; justify-content:space-between; gap:8px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-xs); color:var(--muted);
+  }
+  .fb-state{ font-weight:700; color:var(--clay); white-space:nowrap; }
+  .fb-item.done .fb-state{ color:var(--forest); }
+  .fb-text{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); line-height:1.4;
+    color:var(--ink);
+    margin-top:4px;
+    white-space:pre-wrap; overflow-wrap:anywhere;
+  }
+  .fb-where{ font-family:-apple-system, system-ui, sans-serif; font-size:var(--fs-xs); color:var(--muted); margin-top:4px; }
+  .fb-actions{ display:flex; gap:6px; margin-top:8px; }
+  .fb-del{ color:var(--clay); }
+  .fb-count{ margin-left:6px; color:var(--forest); }
   .shop-empty{ font-family:-apple-system, system-ui, sans-serif; font-size:var(--fs-md); color:var(--muted); padding:6px 4px 20px; }
 
   /* PROFILO */
@@ -1037,6 +1073,8 @@
   </div>
 
 </div>
+
+<div class="fb-fab" id="fbFab" role="button" aria-label="Scrivi a Lænx: bug e idee" title="Scrivi a Lænx">💬</div>
 
 <div class="auth-screen" id="authScreen" hidden>
   <div class="auth-card">
@@ -1336,6 +1374,7 @@ async function startForUser(user){
   refreshUI();
   if(navigator.onLine && await accountGone()){ await forceLogoutDeleted(); return; }
   await syncWithCloud();
+  checkAdmin();
 }
 // L'account è stato cancellato da Supabase? (il "pass" del login resta valido fino a un'ora, getUser lo verifica sul server)
 async function accountGone(){
@@ -1352,6 +1391,7 @@ async function forceLogoutDeleted(){
 }
 function stopForUser(){
   currentUser = null;
+  isAdmin = false;
   clearTimeout(cloudTimer); cloudTimer = null;
   applyState(null);
   refreshUI();
@@ -1541,13 +1581,13 @@ function pasteWeekInto(weekIdx){
   });
 }
 
+function switchTab(tab){
+  currentTab = tab;
+  tabSelector.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+  renderAll();
+}
 tabSelector.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    currentTab = btn.getAttribute('data-tab');
-    tabSelector.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderAll();
-  });
+  btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
 });
 
 function renderWeekSelector(){
@@ -1920,6 +1960,7 @@ function migrateToV2(){
 // ---------- LISTA SPESA: tre modi (settimana, fresca in due giri, dispensa) ----------
 let shopMode = ['fresca', 'settimana', 'dispensa'].includes(readJSON('piano_spesa_modo')) ? readJSON('piano_spesa_modo') : 'fresca';
 let pantryWeeks = [2, 4].includes(readJSON('piano_spesa_dispensa')) ? readJSON('piano_spesa_dispensa') : 4;
+let freshTrips = [1, 2].includes(readJSON('piano_spesa_giri')) ? readJSON('piano_spesa_giri') : 2; // spesa fresca in 1 o 2 giri
 let shopIndex = {}; // chiave spunta → voce, per aprire il dettaglio
 
 const DAY_SHORT = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
@@ -1957,6 +1998,9 @@ function collectItems(slots, durate){
 function shoppingLists(){
   const w = currentWeek;
   const range = (from, to) => rangeLabel(dateForDay(w, from), dateForDay(w, to));
+  if(shopMode === 'fresca' && freshTrips === 1){
+    return [{ id: 'f1', title: 'Spesa fresca', sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), ['fresco', 'medio']), shareTitle: `Spesa fresca (${range(0, 6)})` }];
+  }
   if(shopMode === 'fresca'){
     // Giro 1: freschi di lun–mer + quelli che durano una settimana; giro 2: freschi di gio–dom
     const g1 = collectItems(daysOf(w, 0, 2), ['fresco']).concat(collectItems(daysOf(w, 0, 6), ['medio'])).sort(byName);
@@ -2000,12 +2044,17 @@ function renderShopping(){
   shopIndex = {};
   const desc = {
     settimana: 'Tutto quello che serve per la settimana, diviso per reparto.',
-    fresca: 'Solo i prodotti freschi, in due giri per non comprarli troppo presto. Nel giro 1 ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
+    fresca: freshTrips === 1
+      ? 'Solo i prodotti freschi, per tutta la settimana in un\'unica spesa.'
+      : 'Solo i prodotti freschi, in due giri per non comprarli troppo presto. Nel giro 1 ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
     dispensa: 'Prodotti a lunga conservazione (pasta, riso, olio, legumi…): si comprano una volta sola per più settimane.'
   }[shopMode];
   let html = `<div class="shop-modes">${[['fresca', 'Fresca'], ['settimana', 'Settimana'], ['dispensa', 'Dispensa']]
     .map(([k, l]) => `<div class="shop-mode${shopMode === k ? ' active' : ''}" data-shop-mode="${k}">${l}</div>`).join('')}</div>`;
   html += `<div class="shop-desc">${desc}</div>`;
+  if(shopMode === 'fresca'){
+    html += `<div class="chip-row pantry-row">${[1, 2].map(n => `<div class="chip${freshTrips === n ? ' active' : ''}" data-trips="${n}">${n === 1 ? '1 giro' : '2 giri'}</div>`).join('')}</div>`;
+  }
   if(shopMode === 'dispensa'){
     html += `<div class="chip-row pantry-row">${[2, 4].map(n => `<div class="chip${pantryWeeks === n ? ' active' : ''}" data-pantry="${n}">${n} settimane</div>`).join('')}</div>`;
   }
@@ -2177,6 +2226,8 @@ mainContent.addEventListener('click', (e) => {
   if(currentTab !== 'spesa') return;
   const mode = e.target.closest('[data-shop-mode]');
   if(mode){ shopMode = mode.dataset.shopMode; writeJSON('piano_spesa_modo', shopMode); renderShopping(); return; }
+  const trips = e.target.closest('[data-trips]');
+  if(trips){ freshTrips = Number(trips.dataset.trips); writeJSON('piano_spesa_giri', freshTrips); renderShopping(); return; }
   const pantry = e.target.closest('[data-pantry]');
   if(pantry){ pantryWeeks = Number(pantry.dataset.pantry); writeJSON('piano_spesa_dispensa', pantryWeeks); renderShopping(); return; }
   const share = e.target.closest('[data-share]');
@@ -2471,6 +2522,7 @@ function renderProfile(){
       <div><b>${weekCompleted.filter(Boolean).length}/${planData.length}</b><span>settimane completate</span></div>
       <div><b>${todayIdx ? 'S' + (todayIdx.week + 1) : '–'}</b><span>settimana di oggi</span></div>
     </div>
+    ${isAdmin ? `<h5>📬 Segnalazioni ricevute<span class="fb-count" id="fbCount"></span></h5><div id="fbAdmin"><div class="sheet-hint">Carico…</div></div>` : ''}
 
     <h5>Colori</h5>
     <div class="theme-row">${Object.entries(THEMES).map(([key, t]) => `
@@ -2501,6 +2553,7 @@ function renderProfile(){
     <div class="profile-link danger" id="resetPlanLink">Svuota il piano (cancella tutti i pasti)</div>
     <div class="profile-logout" id="logoutLink" data-logout>Esci dall'account</div>
     <div class="sheet-close" id="profileCloseBtn">Chiudi</div>`;
+  if(isAdmin) loadAdminReports();
 }
 function openProfile(){ renderProfile(); profileOverlay.classList.remove('hidden'); }
 function closeProfile(){ profileOverlay.classList.add('hidden'); }
@@ -2582,6 +2635,10 @@ function initProfile(){
     importFileInput.value = '';
   });
   profileSheet.addEventListener('click', (e) => {
+    const fbToggle = e.target.closest('[data-fb-toggle]');
+    if(fbToggle) return adminSetState(Number(fbToggle.dataset.fbToggle), fbToggle.dataset.fbNext);
+    const fbDel = e.target.closest('[data-fb-del]');
+    if(fbDel) return adminDelete(Number(fbDel.dataset.fbDel));
     const theme = e.target.closest('[data-theme-key]');
     if(theme){
       profile.theme = theme.getAttribute('data-theme-key');
@@ -2623,6 +2680,148 @@ function initProfile(){
   });
 }
 
+// ---------- SEGNALAZIONI: la nuvoletta 💬 per scrivere bug e idee a Lænx ----------
+// Tabelle "segnalazioni" e "amministratori" su Supabase (vedi segnalazioni.sql): ognuno legge le sue, l'amministratore tutte
+let isAdmin = false;
+let fbTipo = 'bug';
+const FB_TIPI = { bug: '🐞 Qualcosa non va', idea: '💡 Un\'idea' };
+
+async function checkAdmin(){
+  isAdmin = false;
+  if(!currentUser || !navigator.onLine) return;
+  const uid = currentUser.id;
+  const { data } = await sb.from('amministratori').select('user_id').eq('user_id', uid).maybeSingle();
+  if(!currentUser || currentUser.id !== uid) return;
+  isAdmin = !!data;
+  refreshProfileIfOpen();
+}
+function deviceName(){
+  const ua = navigator.userAgent;
+  return /android/i.test(ua) ? 'Android' : /iphone|ipad/i.test(ua) ? 'iPhone' : 'Computer';
+}
+// Dove si trovava chi scrive: aiuta a capire il bug
+function whereAmI(){
+  const week = planData[currentWeek];
+  const place = currentTab === 'piano' ? `Piano · ${week.name} · ${week.days[currentDay].name}` : `Lista spesa (${shopMode}) · ${week.name}`;
+  return `${place} · ${deviceName()}`;
+}
+function fbDate(iso){
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS_IT_SHORT[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function reportHTML(r, admin){
+  return `
+    <div class="fb-item${r.stato === 'fatta' ? ' done' : ''}">
+      <div class="fb-top">
+        <span>${r.tipo === 'idea' ? '💡' : '🐞'} ${escapeHtml(fbDate(r.creato))}${admin ? ` · ${escapeHtml(r.email || '')}` : ''}</span>
+        <span class="fb-state">${r.stato === 'fatta' ? 'Fatta ✓' : 'Nuova'}</span>
+      </div>
+      <div class="fb-text">${escapeHtml(r.testo)}</div>
+      ${admin ? `
+      <div class="fb-where">${escapeHtml(r.pagina || '')}</div>
+      <div class="fb-actions">
+        <div class="copy-btn" data-fb-toggle="${r.id}" data-fb-next="${r.stato === 'fatta' ? 'nuova' : 'fatta'}">${r.stato === 'fatta' ? '↺ Riapri' : '✓ Fatta'}</div>
+        <div class="copy-btn fb-del" data-fb-del="${r.id}">🗑 Elimina</div>
+      </div>` : ''}
+    </div>`;
+}
+
+function openFeedback(){
+  if(!currentUser) return;
+  infoSheet.innerHTML = `
+    <h4>Scrivi a Lænx</h4>
+    <div class="sheet-sub">Bug e correzioni: scrivine una alla volta, così non si perde niente.</div>
+    <div class="chip-row">${Object.entries(FB_TIPI).map(([k, l]) => `<div class="chip${fbTipo === k ? ' active' : ''}" data-fb-tipo="${k}">${l}</div>`).join('')}</div>
+    <textarea class="profile-input fb-text" id="fbText" rows="4" maxlength="2000" placeholder="Cosa è successo e dove? (es. «nella lista Fresca il pollo non si spunta»)"></textarea>
+    <div class="profile-msg" id="fbMsg"></div>
+    <div class="sheet-close edit-save" id="fbSend">Invia</div>
+    <h5>Le tue segnalazioni</h5>
+    <div id="fbMine"><div class="sheet-hint">Carico…</div></div>
+    <div class="sheet-cancel" id="fbClose">Chiudi</div>`;
+  infoOverlay.classList.remove('hidden');
+  infoSheet.querySelectorAll('[data-fb-tipo]').forEach(chip => chip.addEventListener('click', () => {
+    fbTipo = chip.dataset.fbTipo;
+    infoSheet.querySelectorAll('[data-fb-tipo]').forEach(c => c.classList.toggle('active', c === chip));
+  }));
+  document.getElementById('fbSend').addEventListener('click', sendFeedback);
+  document.getElementById('fbClose').addEventListener('click', hideInfoSheet);
+  loadMyReports();
+}
+function fbMsg(text, ok){
+  const el = document.getElementById('fbMsg');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'profile-msg' + (ok ? ' ok' : '');
+}
+async function sendFeedback(){
+  const box = document.getElementById('fbText');
+  const testo = box.value.trim();
+  if(!testo) return fbMsg('Scrivi prima cosa vuoi segnalare.');
+  if(!navigator.onLine) return fbMsg('Serve internet per inviare: il testo resta qui, riprova tra poco.');
+  const btn = document.getElementById('fbSend');
+  btn.style.pointerEvents = 'none';
+  fbMsg('Invio…', true);
+  const { error } = await sb.from('segnalazioni').insert({ tipo: fbTipo, testo, pagina: whereAmI() });
+  btn.style.pointerEvents = '';
+  if(error) return fbMsg('Non sono riuscito a inviarla: riprova tra poco. Il testo resta qui.');
+  box.value = '';
+  fbMsg('Inviata, grazie! 🙏', true);
+  loadMyReports();
+}
+async function loadMyReports(){
+  if(!currentUser || !document.getElementById('fbMine')) return;
+  const { data, error } = await sb.from('segnalazioni').select('id, tipo, testo, stato, creato')
+    .eq('user_id', currentUser.id).order('creato', { ascending: false }).limit(30);
+  const box = document.getElementById('fbMine');
+  if(!box) return;
+  if(error){ box.innerHTML = `<div class="sheet-hint">${navigator.onLine ? 'Non riesco a caricarle adesso.' : 'Senza internet non posso mostrarle.'}</div>`; return; }
+  box.innerHTML = data.length ? data.map(r => reportHTML(r, false)).join('') : '<div class="sheet-hint">Ancora nessuna.</div>';
+}
+async function loadAdminReports(){
+  const { data, error } = await sb.from('segnalazioni').select('id, email, tipo, testo, pagina, stato, creato')
+    .order('creato', { ascending: false }).limit(200);
+  const box = document.getElementById('fbAdmin');
+  if(!box) return;
+  if(error){ box.innerHTML = '<div class="sheet-hint">Non riesco a caricarle adesso.</div>'; return; }
+  const open = data.filter(r => r.stato !== 'fatta');
+  document.getElementById('fbCount').textContent = open.length ? ` · ${open.length} da vedere` : '';
+  const sorted = open.concat(data.filter(r => r.stato === 'fatta')); // prima quelle da fare
+  box.innerHTML = sorted.length ? sorted.map(r => reportHTML(r, true)).join('') : '<div class="sheet-hint">Nessuna segnalazione per ora.</div>';
+}
+async function adminSetState(id, stato){
+  const { error } = await sb.from('segnalazioni').update({ stato }).eq('id', id);
+  if(error) showToast('Non riesco a salvarla adesso');
+  loadAdminReports();
+}
+function adminDelete(id){
+  showConfirm('Eliminare questa segnalazione?', async () => {
+    const { error } = await sb.from('segnalazioni').delete().eq('id', id);
+    if(error) showToast('Non riesco a eliminarla adesso');
+    loadAdminReports();
+  }, 'Sì, elimina');
+}
+document.getElementById('fbFab').addEventListener('click', openFeedback);
+
+// ---------- TASTO INDIETRO (Android): chiude schede e pannelli invece di uscire dall'app ----------
+// In cronologia c'è sempre una "pagina di guardia": ogni "indietro" la consuma, noi chiudiamo quello
+// che è aperto e la rimettiamo. Dalla schermata principale serve un secondo "indietro" per uscire.
+let exitArmed = false;
+function armBackGuard(){ history.pushState({ pianoGuard: true }, ''); }
+function closeTopLayer(){
+  if(!document.getElementById('authScreen').hidden) return false;
+  if(!infoOverlay.classList.contains('hidden')){ hideInfoSheet(); return true; }
+  if(!profileOverlay.classList.contains('hidden')){ closeProfile(); return true; }
+  if(currentTab !== 'piano'){ switchTab('piano'); return true; }
+  return false;
+}
+window.addEventListener('popstate', () => {
+  if(closeTopLayer()){ armBackGuard(); return; }
+  if(exitArmed) return;
+  exitArmed = true;
+  showToast('Premi ancora indietro per uscire');
+  setTimeout(() => { if(exitArmed){ exitArmed = false; armBackGuard(); } }, 2500);
+});
+
 const appTitleEl = document.getElementById("appTitle");
 const appSubtitleEl = document.getElementById("appSubtitle");
 function renderTitles(){
@@ -2634,6 +2833,7 @@ function refreshUI(){ renderTitles(); renderAll(); refreshProfileIfOpen(); }
 initProfile();
 refreshUI();
 initAuth();
+armBackGuard();
 
 // Registra il service worker per aggiornamenti automatici e uso offline
 if("serviceWorker" in navigator){
