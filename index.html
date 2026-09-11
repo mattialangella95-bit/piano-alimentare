@@ -785,7 +785,7 @@
     color:var(--forest);
     margin:10px 0 0;
   }
-  .edit-label .profile-input{ margin-top:5px; font-size:var(--fs-body); }
+  .edit-label .profile-input{ margin-top:5px; font-size:var(--fs-md); }
   .edit-save{ margin:16px 0 6px; }
   .sheet-cancel{
     text-align:center;
@@ -850,6 +850,35 @@
   .fb-actions{ display:flex; gap:6px; margin-top:8px; }
   .fb-del{ color:var(--clay); }
   .fb-count{ margin-left:6px; color:var(--forest); }
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin:-4px 0 14px;
+    padding:10px 12px;
+    border:1px solid var(--line); border-radius:12px;
+    background:var(--paper);
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); font-weight:700;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .toggle-row small{ display:block; font-size:var(--fs-xs); font-weight:400; color:var(--muted); margin-top:2px; }
+  .switch{
+    flex:0 0 auto;
+    position:relative;
+    width:44px; height:26px;
+    border-radius:13px;
+    background:var(--line);
+    transition:background 0.15s;
+  }
+  .switch .knob{
+    position:absolute; top:3px; left:3px;
+    width:20px; height:20px; border-radius:50%;
+    background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,0.2);
+    transition:left 0.15s;
+  }
+  .switch.on{ background:var(--forest); }
+  .switch.on .knob{ left:21px; }
   .shop-empty{ font-family:-apple-system, system-ui, sans-serif; font-size:var(--fs-md); color:var(--muted); padding:6px 4px 20px; }
 
   /* PROFILO */
@@ -871,7 +900,7 @@
     width:100%;
     border:none; border-bottom:1px dashed var(--line);
     background:transparent;
-    font-family:inherit; font-size:var(--fs-lg); font-weight:600;
+    font-family:inherit; font-size:var(--fs-body); font-weight:600;
     color:var(--forest-deep);
     padding:2px 0;
   }
@@ -929,8 +958,8 @@
   .profile-input{
     width:100%;
     font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-body);
-    padding:9px 11px;
+    font-size:var(--fs-md);
+    padding:8px 10px;
     border:1px solid var(--line); border-radius:10px;
     background:var(--paper); color:var(--ink);
   }
@@ -1004,7 +1033,7 @@
     display:block; width:100%;
     margin-top:5px;
     font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-body); /* niente zoom dell'iPhone: lo blocca maximum-scale=1 nel viewport */
+    font-size:var(--fs-md); /* niente zoom dell'iPhone: lo blocca maximum-scale=1 nel viewport */
     padding:10px 12px;
     border:1px solid var(--line);
     border-radius:10px;
@@ -1999,14 +2028,14 @@ function shoppingLists(){
   const w = currentWeek;
   const range = (from, to) => rangeLabel(dateForDay(w, from), dateForDay(w, to));
   if(shopMode === 'fresca' && freshTrips === 1){
-    return [{ id: 'f1', title: 'Spesa fresca', sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), ['fresco', 'medio']), shareTitle: `Spesa fresca (${range(0, 6)})` }];
+    return [{ id: 'f1', title: 'Spesa fresca della settimana', sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), ['fresco', 'medio']), shareTitle: `Spesa fresca (${range(0, 6)})` }];
   }
   if(shopMode === 'fresca'){
     // Giro 1: freschi di lun–mer + quelli che durano una settimana; giro 2: freschi di gio–dom
     const g1 = collectItems(daysOf(w, 0, 2), ['fresco']).concat(collectItems(daysOf(w, 0, 6), ['medio'])).sort(byName);
     return [
-      { id: 'g1', title: 'Giro 1', sub: range(0, 2), items: g1, shareTitle: `Spesa fresca, giro 1 (${range(0, 2)})` },
-      { id: 'g2', title: 'Giro 2', sub: range(3, 6), items: collectItems(daysOf(w, 3, 6), ['fresco']), shareTitle: `Spesa fresca, giro 2 (${range(3, 6)})` },
+      { id: 'g1', title: 'Prima spesa', sub: range(0, 2), items: g1, shareTitle: `Prima spesa fresca (${range(0, 2)})` },
+      { id: 'g2', title: 'Seconda spesa', sub: range(3, 6), items: collectItems(daysOf(w, 3, 6), ['fresco']), shareTitle: `Seconda spesa fresca (${range(3, 6)})` },
     ];
   }
   if(shopMode === 'dispensa'){
@@ -2046,14 +2075,18 @@ function renderShopping(){
     settimana: 'Tutto quello che serve per la settimana, diviso per reparto.',
     fresca: freshTrips === 1
       ? 'Solo i prodotti freschi, per tutta la settimana in un\'unica spesa.'
-      : 'Solo i prodotti freschi, in due giri per non comprarli troppo presto. Nel giro 1 ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
+      : 'Solo i prodotti freschi, divisi in due spese per non comprarli troppo presto. Nella prima ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
     dispensa: 'Prodotti a lunga conservazione (pasta, riso, olio, legumi…): si comprano una volta sola per più settimane.'
   }[shopMode];
   let html = `<div class="shop-modes">${[['fresca', 'Fresca'], ['settimana', 'Settimana'], ['dispensa', 'Dispensa']]
     .map(([k, l]) => `<div class="shop-mode${shopMode === k ? ' active' : ''}" data-shop-mode="${k}">${l}</div>`).join('')}</div>`;
   html += `<div class="shop-desc">${desc}</div>`;
   if(shopMode === 'fresca'){
-    html += `<div class="chip-row pantry-row">${[1, 2].map(n => `<div class="chip${freshTrips === n ? ' active' : ''}" data-trips="${n}">${n === 1 ? '1 giro' : '2 giri'}</div>`).join('')}</div>`;
+    html += `
+      <div class="toggle-row" data-toggle-trips role="switch" aria-checked="${freshTrips === 2}">
+        <span>Dividi in due spese <small>lun–mer e gio–dom</small></span>
+        <span class="switch${freshTrips === 2 ? ' on' : ''}"><span class="knob"></span></span>
+      </div>`;
   }
   if(shopMode === 'dispensa'){
     html += `<div class="chip-row pantry-row">${[2, 4].map(n => `<div class="chip${pantryWeeks === n ? ' active' : ''}" data-pantry="${n}">${n} settimane</div>`).join('')}</div>`;
@@ -2226,8 +2259,12 @@ mainContent.addEventListener('click', (e) => {
   if(currentTab !== 'spesa') return;
   const mode = e.target.closest('[data-shop-mode]');
   if(mode){ shopMode = mode.dataset.shopMode; writeJSON('piano_spesa_modo', shopMode); renderShopping(); return; }
-  const trips = e.target.closest('[data-trips]');
-  if(trips){ freshTrips = Number(trips.dataset.trips); writeJSON('piano_spesa_giri', freshTrips); renderShopping(); return; }
+  if(e.target.closest('[data-toggle-trips]')){
+    freshTrips = freshTrips === 2 ? 1 : 2;
+    writeJSON('piano_spesa_giri', freshTrips);
+    renderShopping();
+    return;
+  }
   const pantry = e.target.closest('[data-pantry]');
   if(pantry){ pantryWeeks = Number(pantry.dataset.pantry); writeJSON('piano_spesa_dispensa', pantryWeeks); renderShopping(); return; }
   const share = e.target.closest('[data-share]');
@@ -2534,7 +2571,7 @@ function renderProfile(){
 
     <h5>Personalizza</h5>
     <input class="profile-input" id="profileTitle" type="text" value="${escapeHtml(appTitle)}" placeholder="Titolo dell'app">
-    <textarea class="profile-input" id="profileNotes" rows="3" placeholder="Note da vedere sotto il piano (es. indicazioni del nutrizionista)">${escapeHtml(profile.notes)}</textarea>
+    <textarea class="profile-input" id="profileNotes" rows="3" placeholder="Note da vedere sotto il piano">${escapeHtml(profile.notes)}</textarea>
 
     <h5>Inizio del piano</h5>
     <input class="profile-input" type="date" id="profileStart" value="${escapeHtml(profile.startDate)}">
@@ -2732,7 +2769,7 @@ function openFeedback(){
     <h4>Scrivi a Lænx</h4>
     <div class="sheet-sub">Bug e correzioni: scrivine una alla volta, così non si perde niente.</div>
     <div class="chip-row">${Object.entries(FB_TIPI).map(([k, l]) => `<div class="chip${fbTipo === k ? ' active' : ''}" data-fb-tipo="${k}">${l}</div>`).join('')}</div>
-    <textarea class="profile-input fb-text" id="fbText" rows="4" maxlength="2000" placeholder="Cosa è successo e dove? (es. «nella lista Fresca il pollo non si spunta»)"></textarea>
+    <textarea class="profile-input fb-text" id="fbText" rows="3" maxlength="2000" placeholder="Cosa è successo e dove?"></textarea>
     <div class="profile-msg" id="fbMsg"></div>
     <div class="sheet-close edit-save" id="fbSend">Invia</div>
     <h5>Le tue segnalazioni</h5>
