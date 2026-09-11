@@ -647,8 +647,9 @@
   .auth-card input{
     display:block; width:100%;
     margin-top:5px;
-    font-size:16px; /* sotto i 16px l'iPhone fa lo zoom */
-    padding:11px 12px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.9rem; /* niente zoom dell'iPhone: lo blocca maximum-scale=1 nel viewport */
+    padding:10px 12px;
     border:1px solid var(--line);
     border-radius:10px;
     background:var(--paper);
