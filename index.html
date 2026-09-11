@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Piano">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#2f4a3c">
 <title>Piano Alimentare</title>
 <style>
   :root{
@@ -1917,7 +1919,7 @@ function migrateToV2(){
 
 // ---------- LISTA SPESA: tre modi (settimana, fresca in due giri, dispensa) ----------
 let shopMode = ['fresca', 'settimana', 'dispensa'].includes(readJSON('piano_spesa_modo')) ? readJSON('piano_spesa_modo') : 'fresca';
-let pantryWeeks = [1, 2, 4].includes(readJSON('piano_spesa_dispensa')) ? readJSON('piano_spesa_dispensa') : 4;
+let pantryWeeks = [2, 4].includes(readJSON('piano_spesa_dispensa')) ? readJSON('piano_spesa_dispensa') : 4;
 let shopIndex = {}; // chiave spunta → voce, per aprire il dettaglio
 
 const DAY_SHORT = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
@@ -2005,7 +2007,7 @@ function renderShopping(){
     .map(([k, l]) => `<div class="shop-mode${shopMode === k ? ' active' : ''}" data-shop-mode="${k}">${l}</div>`).join('')}</div>`;
   html += `<div class="shop-desc">${desc}</div>`;
   if(shopMode === 'dispensa'){
-    html += `<div class="chip-row pantry-row">${[1, 2, 4].map(n => `<div class="chip${pantryWeeks === n ? ' active' : ''}" data-pantry="${n}">${n} ${n === 1 ? 'settimana' : 'settimane'}</div>`).join('')}</div>`;
+    html += `<div class="chip-row pantry-row">${[2, 4].map(n => `<div class="chip${pantryWeeks === n ? ' active' : ''}" data-pantry="${n}">${n} settimane</div>`).join('')}</div>`;
   }
   lists.forEach(list => { html += shopListHTML(list); });
 
