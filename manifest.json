@@ -1,0 +1,14 @@
+{
+  "name": "Piano Alimentare",
+  "short_name": "Piano",
+  "description": "Piano alimentare personale, con lista della spesa",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f2e9",
+  "theme_color": "#2f4a3c",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,4 @@
+# Dati personali: non vanno mai su GitHub
+piano_backup_*.json
+importa_*.sql
+.DS_Store

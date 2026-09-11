@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Piano">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Piano Alimentare</title>
+<style>
+  :root{
+    --forest: #2f4a3c;
+    --forest-deep: #1d2f26;
+    --cream: #f6f2e9;
+    --paper: #fffdf8;
+    --clay: #b5563c;
+    --gold: #c79a3d;
+    --ink: #22281f;
+    --muted: #6b6f63;
+    --line: #e2ddcd;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--forest-deep);
+    font-family: 'Iowan Old Style','Georgia','Times New Roman',serif;
+    color:var(--ink);
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--cream);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* HEADER */
+  header{
+    background: linear-gradient(160deg, var(--forest) 0%, var(--forest-deep) 100%);
+    color:var(--cream);
+    padding: 22px 20px 18px;
+    position: sticky; top:0; z-index:20;
+  }
+  .brand{
+    display:flex; justify-content:space-between; align-items:flex-start;
+  }
+  .brand h1{
+    font-size: 1.15rem;
+    font-weight:600;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+  .brand .sub{
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    color: #c9d6cb;
+    margin-top:3px;
+  }
+  .week-pill{
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space:nowrap;
+    color: #f0e6c9;
+  }
+
+  /* WEEK SELECTOR */
+  .weeks{
+    display:flex; gap:6px; margin-top:16px;
+  }
+  .week-btn{
+    flex:1;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #d7ded4;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size:0.72rem;
+    padding: 7px 6px;
+    border-radius: 8px;
+    text-align:center;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    position:relative;
+  }
+  .week-btn .wk-label{ pointer-events:none; }
+  .week-btn .wk-check{
+    width:16px; height:16px;
+    border-radius:50%;
+    border:1.3px solid rgba(255,255,255,0.4);
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.6rem;
+    color:transparent;
+    flex:0 0 auto;
+  }
+  .week-btn.completed{
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+  }
+  .week-btn.completed .wk-label{
+    color:#8f9a90;
+    text-decoration: line-through;
+  }
+  .week-btn.completed .wk-check{
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--forest-deep);
+  }
+  .week-btn.active{
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--forest-deep);
+    font-weight:700;
+  }
+  .week-btn.active .wk-check{
+    border-color: rgba(29,47,38,0.4);
+  }
+  .week-btn.active.completed .wk-check{
+    background: var(--forest-deep);
+    border-color: var(--forest-deep);
+    color: var(--gold);
+  }
+  .week-btn.active.completed .wk-label{
+    color: var(--forest-deep);
+  }
+
+  /* DAY STRIP */
+  .day-strip{
+    display:flex;
+    overflow-x:auto;
+    gap:8px;
+    padding: 16px 20px 0;
+    scrollbar-width:none;
+  }
+  .day-strip::-webkit-scrollbar{display:none;}
+  .day-chip{
+    flex:0 0 auto;
+    min-width:56px;
+    text-align:center;
+    padding:8px 4px 9px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background: var(--paper);
+    cursor:pointer;
+  }
+  .day-chip .d-name{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.62rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--muted);
+    display:block;
+  }
+  .day-chip .d-num{
+    font-size:1.05rem;
+    font-weight:600;
+    color:var(--ink);
+    display:block;
+    margin-top:2px;
+  }
+  .day-chip.active{
+    background: var(--forest);
+    border-color: var(--forest);
+  }
+  .day-chip.active .d-name{ color:#cfe0d3; }
+  .day-chip.active .d-num{ color:#fff; }
+  .day-chip.today{
+    box-shadow: 0 0 0 2px var(--clay);
+  }
+
+  /* CONTENT */
+  main{
+    flex:1;
+    padding: 18px 20px 100px;
+  }
+  .day-heading{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .day-heading h2{
+    font-size:1.5rem;
+    margin:0;
+    color:var(--forest-deep);
+  }
+  .day-heading .badge-today{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.62rem;
+    color:var(--clay);
+    border:1px solid var(--clay);
+    padding:2px 8px;
+    border-radius:20px;
+  }
+
+  .meal-card{
+    background: var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 16px 15px;
+    margin-bottom:12px;
+    position:relative;
+  }
+  .meal-card.fixed{
+    background: repeating-linear-gradient(135deg, var(--paper), var(--paper) 10px, #fbf6ea 10px, #fbf6ea 20px);
+  }
+  .meal-label{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    letter-spacing:0.03em;
+    color:var(--clay);
+    font-weight:700;
+    margin:0 0 6px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .meal-label .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--clay);
+    display:inline-block;
+  }
+  .meal-text{
+    font-size:0.97rem;
+    line-height:1.45;
+    color:var(--ink);
+    margin:0;
+  }
+  .corrected-flag{
+    margin-top:8px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.65rem;
+    color:#8a5a1e;
+    background:#fbeed9;
+    border:1px solid #eccd93;
+    padding:5px 8px;
+    border-radius:8px;
+    line-height:1.35;
+  }
+
+  .divider-note{
+    text-align:center;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.62rem;
+    color:var(--muted);
+    margin: 18px 0 4px;
+  }
+
+  /* NAV ARROWS FOOTER */
+  .nav-footer{
+    position:fixed;
+    bottom:0; left:0; right:0;
+    max-width:480px;
+    margin:0 auto;
+    background: linear-gradient(0deg, var(--cream) 60%, rgba(246,242,233,0));
+    padding: 22px 20px 18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    pointer-events:none;
+  }
+  .nav-btn{
+    pointer-events:all;
+    width:46px;height:46px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem;
+    color:var(--forest-deep);
+    cursor:pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  .nav-btn:active{ transform: scale(0.94); }
+  .nav-center{
+    pointer-events:all;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.72rem;
+    color:var(--muted);
+    background:var(--paper);
+    border:1px solid var(--line);
+    padding:8px 14px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+
+  .guidelines-btn{
+    position:absolute; top:22px; right:20px;
+  }
+
+  /* TABS */
+  .tabs{
+    display:flex;
+    gap:0;
+    margin-top:14px;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.2);
+  }
+  .tab-btn{
+    flex:1;
+    text-align:center;
+    padding:9px 0;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.78rem;
+    font-weight:600;
+    color:#cfd9d0;
+    background:rgba(255,255,255,0.06);
+    cursor:pointer;
+  }
+  .tab-btn.active{
+    background:var(--cream);
+    color:var(--forest-deep);
+  }
+
+  /* SHOPPING LIST */
+  .shop-section{
+    margin-bottom:22px;
+  }
+  .shop-section h3{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    letter-spacing:0.03em;
+    color:var(--forest);
+    background:var(--cat-bg,#e4ecd f);
+    background:#e6ecdd;
+    border-left:4px solid var(--forest);
+    padding:7px 10px;
+    margin:0 0 8px;
+    border-radius:4px;
+  }
+  .shop-item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:10px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .shop-item:last-child{ border-bottom:none; }
+  .shop-check{
+    flex:0 0 auto;
+    width:22px;height:22px;
+    border-radius:6px;
+    border:1.5px solid #b9c4ac;
+    background:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem;
+    color:transparent;
+    cursor:pointer;
+    margin-top:1px;
+  }
+  .shop-check.checked{
+    background:var(--forest);
+    border-color:var(--forest);
+    color:#fff;
+  }
+  .shop-text{ flex:1; }
+  .shop-name{
+    font-size:0.95rem;
+    line-height:1.35;
+    color:var(--ink);
+  }
+  .shop-item.done .shop-name{
+    color:#9aa091;
+    text-decoration: line-through;
+  }
+  .shop-meta{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .shop-qty{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-weight:700;
+    color:var(--clay);
+  }
+  .fixed-banner{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    color:#4a5d43;
+    background:#e6ecdd;
+    border:1px solid #c9d6bf;
+    padding:8px 10px;
+    border-radius:8px;
+    margin-bottom:14px;
+    line-height:1.4;
+  }
+  .reset-link{
+    text-align:center;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.7rem;
+    color:var(--muted);
+    text-decoration:underline;
+    margin: 6px 0 4px;
+    cursor:pointer;
+  }
+
+  /* EDITABLE INGREDIENT LIST */
+  .ing-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 0;
+    border-bottom:1px solid #efeadb;
+  }
+  .ing-row:last-of-type{ border-bottom:none; }
+  .ing-name{
+    flex:1;
+    font-size:0.95rem;
+    line-height:1.35;
+    color:var(--ink);
+    outline:none;
+    padding:3px 4px;
+    border-radius:5px;
+    min-width:0;
+  }
+  .ing-name:focus{
+    background:#fbf6ea;
+    box-shadow: 0 0 0 1.5px var(--gold);
+  }
+  .ing-qty{
+    flex:0 0 auto;
+    width:64px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.78rem;
+    font-weight:700;
+    color:var(--clay);
+    outline:none;
+    text-align:right;
+    padding:3px 4px;
+    border-radius:5px;
+  }
+  .ing-qty:focus{
+    background:#fbf6ea;
+    box-shadow: 0 0 0 1.5px var(--gold);
+  }
+  .ing-del{
+    flex:0 0 auto;
+    width:22px;height:22px;
+    border-radius:50%;
+    background:#efe6da;
+    color:#9a7b52;
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.75rem;
+    cursor:pointer;
+  }
+  .ing-add{
+    margin-top:8px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.75rem;
+    color:var(--forest);
+    font-weight:700;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .ing-nobuy .ing-name{ color:#9a9d92; font-style:italic; }
+
+  /* INFO BUTTON + POPOVER */
+  .shop-item{ align-items:center; }
+  .info-btn{
+    flex:0 0 auto;
+    width:22px;height:22px;
+    border-radius:50%;
+    border:1px solid #c9c2ab;
+    color:#8a8266;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(20,24,18,0.5);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:100;
+  }
+  .overlay.hidden{ display:none; }
+  .sheet{
+    width:100%; max-width:480px;
+    background:var(--paper);
+    border-radius:18px 18px 0 0;
+    padding:18px 20px 26px;
+    max-height:70vh;
+    overflow-y:auto;
+  }
+  .sheet h4{
+    margin:0 0 10px;
+    font-size:1.05rem;
+    color:var(--forest-deep);
+  }
+  .sheet .sheet-row{
+    display:flex; justify-content:space-between; gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid var(--line);
+    font-size:0.88rem;
+  }
+  .sheet .sheet-row:last-child{ border-bottom:none; }
+  .sheet .sheet-day{ color:var(--ink); }
+  .sheet .sheet-meal{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    color:var(--muted);
+  }
+  .sheet .sheet-qty{
+    font-weight:700; color:var(--clay);
+    white-space:nowrap;
+  }
+  .sheet-close{
+    margin-top:14px;
+    text-align:center;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.8rem;
+    font-weight:700;
+    color:#fff;
+    background:var(--forest);
+    padding:10px 0;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .date-sub{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.72rem;
+    color:var(--muted);
+  }
+
+  /* CLIPBOARD / COPIA-INCOLLA */
+  .clip-banner{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:#eef3e8;
+    border:1px solid #c9d6bf;
+    border-radius:10px;
+    padding:8px 12px;
+    margin:10px 20px 0;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.72rem;
+    color:#3d4a37;
+  }
+  .clip-banner.active{ display:flex; }
+  .clip-banner .clip-clear{
+    flex:0 0 auto;
+    font-weight:700;
+    color:var(--clay);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .copy-btn, .paste-btn{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.68rem;
+    font-weight:700;
+    cursor:pointer;
+    padding:3px 8px;
+    border-radius:6px;
+    white-space:nowrap;
+    flex:0 0 auto;
+  }
+  .copy-btn{
+    color:var(--forest);
+    background:#e6ecdd;
+    border:1px solid #c9d6bf;
+  }
+  .paste-btn{
+    color:#fff;
+    background:var(--clay);
+    border:1px solid var(--clay);
+  }
+  .ing-copy{
+    flex:0 0 auto;
+    width:22px;height:22px;
+    border-radius:50%;
+    background:#e6ecdd;
+    color:var(--forest);
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.72rem;
+    cursor:pointer;
+  }
+  .meal-header-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .meal-header-row .meal-label{ margin:0; flex:1; }
+  .meal-actions{ display:flex; gap:6px; flex:0 0 auto; }
+  .day-actions{ display:flex; gap:6px; margin-top:6px; }
+  .week-actions{ display:flex; gap:6px; margin-top:10px; }
+
+  /* ACCOUNT E SALVATAGGIO */
+  .brand-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+  .sync-status{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.6rem;
+    color:#c9d6cb;
+    white-space:nowrap;
+  }
+  .sync-status.offline, .sync-status.error{ color:#f0c9a0; }
+  .account-line{
+    text-align:center;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.7rem;
+    color:var(--muted);
+    margin: 18px 0 6px;
+  }
+  .account-line span{ text-decoration:underline; cursor:pointer; color:var(--clay); }
+  .auth-screen{
+    position:fixed; inset:0; z-index:200;
+    background: linear-gradient(160deg, var(--forest) 0%, var(--forest-deep) 100%);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .auth-screen[hidden]{ display:none; }
+  .auth-card{
+    width:100%; max-width:380px;
+    background:var(--cream);
+    border-radius:18px;
+    padding:26px 22px 22px;
+  }
+  .auth-card h1{ margin:0; font-size:1.4rem; color:var(--forest-deep); }
+  .auth-sub{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.8rem; color:var(--muted);
+    margin:6px 0 18px;
+  }
+  .auth-card label{
+    display:block;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.72rem; font-weight:700; color:var(--forest);
+    margin-bottom:12px;
+  }
+  .auth-card input{
+    display:block; width:100%;
+    margin-top:5px;
+    font-size:16px; /* sotto i 16px l'iPhone fa lo zoom */
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .auth-card input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 2px rgba(199,154,61,0.25); }
+  .auth-btn{
+    display:block; width:100%;
+    margin-top:10px;
+    padding:12px;
+    border:none; border-radius:10px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.9rem; font-weight:700;
+    background:var(--forest); color:#fff;
+    cursor:pointer;
+  }
+  .auth-btn.secondary{ background:transparent; color:var(--forest); border:1px solid var(--forest); }
+  .auth-btn:disabled{ opacity:0.6; }
+  .auth-msg{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:0.78rem; line-height:1.4;
+    color:var(--clay);
+    margin-top:14px; min-height:1em;
+  }
+  .auth-msg.ok{ color:var(--forest); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div>
+        <h1 contenteditable="true" id="appTitle">Il mio Piano Alimentare</h1>
+        <div class="sub" contenteditable="true" id="appSubtitle">Tocca per personalizzare</div>
+      </div>
+      <div class="brand-right">
+        <div class="week-pill" id="weekPill">Settimana 1</div>
+        <div class="sync-status" id="syncStatus"></div>
+      </div>
+    </div>
+    <div class="tabs" id="tabSelector">
+      <div class="tab-btn active" data-tab="piano">Piano</div>
+      <div class="tab-btn" data-tab="spesa">Lista spesa</div>
+    </div>
+    <div class="weeks" id="weekSelector"></div>
+    <div class="week-actions" id="weekActions"></div>
+  </header>
+
+  <div class="clip-banner" id="clipBanner">
+    <span id="clipLabel"></span>
+    <span class="clip-clear" id="clipClearBtn">Svuota appunti</span>
+  </div>
+
+  <div class="day-strip" id="dayStrip"></div>
+
+  <main id="mainContent"></main>
+
+  <div class="nav-footer" id="navFooter">
+    <div class="nav-btn" id="prevBtn">‹</div>
+    <div class="nav-center" id="todayBtn">Vai a oggi</div>
+    <div class="nav-btn" id="nextBtn">›</div>
+  </div>
+
+</div>
+
+<div class="auth-screen" id="authScreen" hidden>
+  <div class="auth-card">
+    <h1>Piano Alimentare</h1>
+    <p class="auth-sub">Entra per ritrovare il tuo piano su qualsiasi telefono.</p>
+    <form id="authForm" novalidate>
+      <label>Email<input type="email" id="authEmail" autocomplete="email" inputmode="email" autocapitalize="off"></label>
+      <label>Password<input type="password" id="authPassword" autocomplete="current-password"></label>
+      <button type="submit" class="auth-btn" id="loginBtn">Entra</button>
+      <button type="button" class="auth-btn secondary" id="signupBtn">Crea account</button>
+    </form>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="infoOverlay">
+  <div class="sheet" id="infoSheet"></div>
+</div>
+
+<script src="supabase.js"></script>
+<script>
+// Piano vuoto: 4 settimane × 7 giorni × 6 pasti. Ogni nuovo utente parte da qui.
+function emptyPlan(){
+  const days = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+  const meals = ['colazione','spMattina','pranzo','spPomeriggio','cena','dopoCena'];
+  return [1,2,3,4].map(n => ({
+    name: `Settimana ${n}`,
+    days: days.map(name => ({ name, corrected: false, meals: Object.fromEntries(meals.map(m => [m, []])) }))
+  }));
+}
+let planData = emptyPlan();
+
+const MEAL_TYPES = ['colazione','spMattina','pranzo','spPomeriggio','cena','dopoCena'];
+const MEAL_LABELS = {
+  colazione: 'Colazione',
+  spMattina: 'Spuntino mattina',
+  pranzo: 'Pranzo',
+  spPomeriggio: 'Spuntino pomeriggio',
+  cena: 'Cena',
+  dopoCena: 'Dopo cena'
+};
+const FIXED_MEALS = ['spMattina','spPomeriggio','dopoCena'];
+
+const MONTHS_IT = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+const MONTHS_IT_SHORT = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+
+// Settimana 1, Lunedì = primo lunedì di settembre 2026 (calendario reale)
+const START_DATE = new Date(2026, 8, 7);
+// Il piano dura 4 settimane e poi ricomincia da capo (ciclo di 28 giorni)
+const PLAN_DAYS = 28;
+
+function dateForDay(weekIdx, dayIdx){
+  const d = new Date(START_DATE);
+  d.setDate(d.getDate() + currentCycle*PLAN_DAYS + weekIdx*7 + dayIdx);
+  return d;
+}
+function fullDateLabel(d){
+  return `${d.getDate()} ${MONTHS_IT[d.getMonth()]}`;
+}
+function shortDateLabel(d){
+  return `${d.getDate()} ${MONTHS_IT_SHORT[d.getMonth()]}`;
+}
+
+function computeTodayIndex(){
+  const now = new Date(now_date());
+  const start = new Date(START_DATE.getFullYear(), START_DATE.getMonth(), START_DATE.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((today - start) / 86400000);
+  if(diffDays < 0) return null;
+  const dayInCycle = diffDays % PLAN_DAYS;
+  return { cycle: Math.floor(diffDays/PLAN_DAYS), week: Math.floor(dayInCycle/7), dayIdx: dayInCycle%7 };
+}
+function now_date(){ return new Date(); }
+
+const todayIdx = computeTodayIndex();
+const currentCycle = todayIdx ? todayIdx.cycle : 0;
+
+let currentTab = 'piano';
+let currentWeek = 0;
+let currentDay = 0;
+const weekCompleted = [false,false,false,false];
+const shopCheckedState = {}; // key -> bool
+let extraItems = [[],[],[],[]]; // articoli extra per settimana, non legati al piano alimentare
+let appTitle = 'Il mio Piano Alimentare';
+let appSubtitle = 'Tocca per personalizzare';
+
+// ---------- PERSISTENZA: copia sul telefono (va anche offline) + Supabase (il salvataggio vero) ----------
+// Tabella "piani" su Supabase: una riga per utente con tutto il suo piano (vedi supabase.sql)
+const SUPABASE_URL = window.PIANO_SUPABASE_URL || 'https://uovtynfxvdesunojalmy.supabase.co';
+const SUPABASE_KEY = window.PIANO_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvdnR5bmZ4dmRlc3Vub2phbG15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjUyNDMsImV4cCI6MjEwMzE0MTI0M30.-ti8kSiVmMcuB03YVNLh8rrzUQx0NMa6MYWAgCYyj5M';
+const LEGACY_STORAGE_KEY = 'piano_alimentare_personale_v1'; // versione senza account
+const LAST_USER_KEY = 'piano_ultimo_utente';
+const DEFAULT_TITLE = 'Il mio Piano Alimentare';
+const DEFAULT_SUBTITLE = 'Tocca per personalizzare';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { storageKey: 'piano-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+let currentUser = null;  // { id, email }
+let lastLocalSave = 0;   // momento dell'ultima modifica fatta sul telefono
+let cloudTimer = null;
+
+function localKey(){ return `piano_utente_${currentUser.id}`; }
+function readJSON(key){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
+function writeJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+function currentState(){
+  return { planData, weekCompleted, shopCheckedState, extraItems, appTitle, appSubtitle, cycle: currentCycle };
+}
+
+// Ogni modifica: subito sul telefono, un attimo dopo su Supabase
+function saveState(){
+  if(!currentUser) return;
+  lastLocalSave = Date.now();
+  const prev = readJSON(localKey());
+  writeJSON(localKey(), { ...currentState(), savedAt: lastLocalSave, dirty: true, cloudAt: prev && prev.cloudAt });
+  setSync('pending');
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(pushToCloud, 800);
+}
+
+async function pushToCloud(){
+  clearTimeout(cloudTimer); cloudTimer = null;
+  if(!currentUser) return;
+  if(!navigator.onLine){ setSync('offline'); return; }
+  const uid = currentUser.id, sentAt = lastLocalSave;
+  const aggiornato = new Date().toISOString();
+  setSync('saving');
+  const { error } = await sb.from('piani').upsert({ user_id: uid, dati: currentState(), aggiornato });
+  if(!currentUser || currentUser.id !== uid) return;
+  if(error){
+    setSync(navigator.onLine ? 'error' : 'offline');
+    cloudTimer = setTimeout(pushToCloud, 10000);
+    return;
+  }
+  if(lastLocalSave !== sentAt){ cloudTimer = setTimeout(pushToCloud, 800); return; } // altre modifiche arrivate intanto
+  const local = readJSON(localKey());
+  if(local){ local.dirty = false; local.cloudAt = aggiornato; writeJSON(localKey(), local); }
+  setSync('saved');
+}
+
+// Scarica il piano da Supabase; se il telefono ha modifiche piu' recenti non ancora caricate, vincono quelle
+async function syncWithCloud(){
+  if(!currentUser) return;
+  if(!navigator.onLine){ setSync('offline'); return; }
+  const uid = currentUser.id;
+  setSync('saving');
+  const { data, error } = await sb.from('piani').select('dati, aggiornato').eq('user_id', uid).maybeSingle();
+  if(!currentUser || currentUser.id !== uid) return;
+  if(error){ setSync('error'); return; }
+  const local = readJSON(localKey());
+  if(local && local.dirty && (!data || local.savedAt > Date.parse(data.aggiornato))){ await pushToCloud(); return; }
+  if(data){
+    const cloudTime = Date.parse(data.aggiornato);
+    if(local && !local.dirty && local.cloudAt && Date.parse(local.cloudAt) === cloudTime){ setSync('saved'); return; }
+    const reset = applyState(data.dati);
+    writeJSON(localKey(), { ...currentState(), savedAt: cloudTime, dirty: false, cloudAt: data.aggiornato });
+    refreshUI();
+    if(reset) saveState(); else setSync('saved');
+    return;
+  }
+  // Account nuovo: parte dal piano vuoto, ma se su questo telefono c'e' il piano della vecchia versione lo propone
+  saveState();
+  const legacy = readJSON(LEGACY_STORAGE_KEY);
+  if(legacy && Array.isArray(legacy.planData)){
+    showConfirm('Su questo telefono c\'è un piano salvato con la versione precedente dell\'app. Vuoi caricarlo nel tuo account?', () => {
+      applyState({ appTitle, appSubtitle, ...legacy });
+      saveState();
+      refreshUI();
+      try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(e){}
+    }, 'Sì, caricalo');
+  }
+}
+
+// Mette nell'app i dati salvati (null = piano vuoto). Torna true se ha azzerato i progressi per un nuovo giro.
+function applyState(saved){
+  planData = emptyPlan();
+  weekCompleted.fill(false);
+  Object.keys(shopCheckedState).forEach(k => delete shopCheckedState[k]);
+  extraItems = [[],[],[],[]];
+  appTitle = DEFAULT_TITLE;
+  appSubtitle = DEFAULT_SUBTITLE;
+  if(!saved) return false;
+  if(Array.isArray(saved.planData) && saved.planData.length === planData.length){
+    planData = saved.planData;
+  }
+  if(Array.isArray(saved.weekCompleted)){
+    saved.weekCompleted.forEach((v,i) => { if(i < weekCompleted.length) weekCompleted[i] = v; });
+  }
+  if(saved.shopCheckedState){
+    Object.assign(shopCheckedState, saved.shopCheckedState);
+  }
+  if(Array.isArray(saved.extraItems) && saved.extraItems.length === extraItems.length){
+    extraItems = saved.extraItems;
+  }
+  if(typeof saved.appTitle === 'string') appTitle = saved.appTitle;
+  if(typeof saved.appSubtitle === 'string') appSubtitle = saved.appSubtitle;
+  migrateExtraChecks();
+  // Nuovo giro del piano: azzera settimane completate e spunte della spesa
+  const savedCycle = typeof saved.cycle === 'number' ? saved.cycle : 0;
+  if(savedCycle !== currentCycle){ resetProgress(); return true; }
+  return false;
+}
+function resetProgress(){
+  weekCompleted.fill(false);
+  Object.keys(shopCheckedState).forEach(k => delete shopCheckedState[k]);
+  extraItems.forEach(list => list.forEach(it => { it.done = false; }));
+}
+// La spunta degli articoli extra sta sull'articolo stesso, non sulla sua posizione
+function migrateExtraChecks(){
+  extraItems.forEach((list, w) => list.forEach((it, i) => {
+    if(shopCheckedState[`extra::${w}::${i}`]) it.done = true;
+  }));
+  Object.keys(shopCheckedState).forEach(k => { if(k.startsWith('extra::')) delete shopCheckedState[k]; });
+}
+
+function setSync(state){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.textContent = {
+    pending: 'Salvataggio…', saving: 'Salvataggio…', saved: 'Salvato ✓',
+    offline: 'Offline · salvo quando torna la rete', error: 'Non salvato online · riprovo'
+  }[state] || '';
+  el.className = 'sync-status ' + state;
+}
+
+// ---------- ACCOUNT (login con email e password di Supabase) ----------
+async function startForUser(user){
+  if(currentUser && currentUser.id === user.id) return;
+  currentUser = { id: user.id, email: user.email };
+  writeJSON(LAST_USER_KEY, currentUser);
+  const reset = applyState(readJSON(localKey()));
+  hideAuth();
+  refreshUI();
+  if(reset) saveState();
+  await syncWithCloud();
+}
+function stopForUser(){
+  currentUser = null;
+  clearTimeout(cloudTimer); cloudTimer = null;
+  applyState(null);
+  refreshUI();
+  setSync('');
+}
+function logout(){
+  const local = currentUser && readJSON(localKey());
+  const doIt = async () => {
+    try{ localStorage.removeItem(localKey()); localStorage.removeItem(LAST_USER_KEY); }catch(e){}
+    stopForUser();
+    await sb.auth.signOut({ scope: 'local' }).catch(() => {});
+    showAuth();
+  };
+  if(local && local.dirty){
+    showConfirm('Alcune modifiche non sono ancora salvate online (manca la rete). Se esci adesso le perdi. Uscire comunque?', doIt, 'Esci comunque');
+  } else doIt();
+}
+
+function showAuth(msg, tone){
+  document.getElementById('authScreen').hidden = false;
+  authMsg(msg || '', tone);
+}
+function hideAuth(){ document.getElementById('authScreen').hidden = true; authMsg(''); }
+function authMsg(text, tone){
+  const el = document.getElementById('authMsg');
+  el.textContent = text;
+  el.className = 'auth-msg' + (tone === 'ok' ? ' ok' : '');
+}
+function authBusy(busy){
+  document.querySelectorAll('#authScreen button').forEach(b => { b.disabled = busy; });
+}
+function authErrorText(e){
+  const m = (e && e.message || '').toLowerCase();
+  if(m.includes('invalid login')) return 'Email o password sbagliate.';
+  if(m.includes('not confirmed')) return 'Prima conferma la mail: controlla la posta (anche lo spam).';
+  if(m.includes('already registered')) return 'Esiste già un account con questa email: premi Entra.';
+  if(m.includes('password')) return 'La password deve avere almeno 6 caratteri.';
+  if(m.includes('rate') || (e && e.status === 429)) return 'Troppi tentativi, riprova tra qualche minuto.';
+  if(m.includes('fetch') || m.includes('network')) return 'Nessuna connessione a internet.';
+  return 'Qualcosa non ha funzionato: ' + (e && e.message || 'errore sconosciuto');
+}
+function authValues(){
+  return {
+    email: document.getElementById('authEmail').value.trim(),
+    password: document.getElementById('authPassword').value
+  };
+}
+async function doLogin(){
+  const { email, password } = authValues();
+  if(!email || !password) return authMsg('Scrivi email e password.');
+  authBusy(true); authMsg('Entro…', 'ok');
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  authBusy(false);
+  if(error) authMsg(authErrorText(error));
+}
+async function doSignup(){
+  const { email, password } = authValues();
+  if(!email || !password) return authMsg('Scrivi email e una password per il nuovo account.');
+  if(password.length < 6) return authMsg('La password deve avere almeno 6 caratteri.');
+  authBusy(true); authMsg('Creo l\'account…', 'ok');
+  const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+  authBusy(false);
+  if(error) return authMsg(authErrorText(error));
+  if(data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0){
+    return authMsg('Esiste già un account con questa email: premi Entra.');
+  }
+  if(!data || !data.session){
+    authMsg('Ti ho mandato una mail di conferma. Apri il link, poi torna qui e premi Entra.', 'ok');
+  }
+}
+function initAuth(){
+  document.getElementById('authForm').addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
+  document.getElementById('signupBtn').addEventListener('click', doSignup);
+  sb.auth.onAuthStateChange((event, session) => {
+    // Supabase consiglia di non chiamare altre sue funzioni dentro questo callback: si rimanda di un giro
+    setTimeout(() => {
+      if(session && session.user){ startForUser(session.user); return; }
+      if(event === 'INITIAL_SESSION'){
+        const last = readJSON(LAST_USER_KEY);
+        if(!navigator.onLine && last) startForUser(last); // senza rete si lavora sulla copia del telefono
+        else showAuth();
+      } else if(event === 'SIGNED_OUT' && currentUser){
+        stopForUser();
+        showAuth('Sessione scaduta: entra di nuovo. Le modifiche fatte su questo telefono non sono perse.');
+      }
+    }, 0);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if(!currentUser) return;
+    if(document.visibilityState === 'hidden'){ if(cloudTimer) pushToCloud(); return; }
+    const local = readJSON(localKey());
+    if(local && local.dirty) pushToCloud(); else syncWithCloud();
+  });
+  window.addEventListener('online', () => { if(currentUser) syncWithCloud(); });
+  window.addEventListener('offline', () => { if(currentUser) setSync('offline'); });
+}
+
+if(todayIdx){ currentWeek = todayIdx.week; currentDay = todayIdx.dayIdx; }
+
+const weekSelector = document.getElementById('weekSelector');
+const dayStrip = document.getElementById('dayStrip');
+const mainContent = document.getElementById('mainContent');
+const weekPill = document.getElementById('weekPill');
+const navFooter = document.getElementById('navFooter');
+const tabSelector = document.getElementById('tabSelector');
+const infoOverlay = document.getElementById('infoOverlay');
+const infoSheet = document.getElementById('infoSheet');
+const weekActions = document.getElementById('weekActions');
+const clipBanner = document.getElementById('clipBanner');
+const clipLabel = document.getElementById('clipLabel');
+const clipClearBtn = document.getElementById('clipClearBtn');
+
+// ---------- APPUNTI (copia/incolla interno all'app) ----------
+let clipboard = null; // { type:'ingredient'|'meal'|'day'|'week', label, ...payload }
+
+function setClipboard(obj){
+  clipboard = obj;
+  renderClipBanner();
+}
+function clearClipboard(){
+  clipboard = null;
+  renderClipBanner();
+}
+function renderClipBanner(){
+  if(!clipboard){
+    clipBanner.classList.remove('active');
+    return;
+  }
+  const icons = { ingredient:'🍽️', meal:'🍴', day:'📅', week:'🗓️' };
+  clipLabel.textContent = `${icons[clipboard.type]||'📋'} Copiato: ${clipboard.label}`;
+  clipBanner.classList.add('active');
+}
+clipClearBtn.addEventListener('click', clearClipboard);
+
+function copyIngredient(item){
+  setClipboard({ type:'ingredient', label: `${item.name || '(vuoto)'} — ${item.qty || 'q.b.'}`, item: JSON.parse(JSON.stringify(item)) });
+}
+function pasteIngredientInto(weekIdx, dayIdx, mealType){
+  if(!clipboard || clipboard.type !== 'ingredient') return;
+  planData[weekIdx].days[dayIdx].meals[mealType].push(JSON.parse(JSON.stringify(clipboard.item)));
+  saveState();
+  renderMain();
+}
+
+function copyMeal(mealType, items){
+  setClipboard({ type:'meal', label: `${MEAL_LABELS[mealType]} (${items.length} ingredienti)`, items: JSON.parse(JSON.stringify(items)) });
+}
+function pasteMealInto(weekIdx, dayIdx, mealType){
+  if(!clipboard || clipboard.type !== 'meal') return;
+  showConfirm(`Sostituire "${MEAL_LABELS[mealType]}" con gli ingredienti copiati? Il contenuto attuale andrà perso.`, () => {
+    planData[weekIdx].days[dayIdx].meals[mealType] = JSON.parse(JSON.stringify(clipboard.items));
+    saveState();
+    renderMain();
+  });
+}
+
+function copyDay(weekIdx, dayIdx){
+  const day = planData[weekIdx].days[dayIdx];
+  setClipboard({ type:'day', label: `${day.name} (Settimana ${weekIdx+1})`, meals: JSON.parse(JSON.stringify(day.meals)) });
+}
+function pasteDayInto(weekIdx, dayIdx){
+  if(!clipboard || clipboard.type !== 'day') return;
+  const destName = planData[weekIdx].days[dayIdx].name;
+  showConfirm(`Sostituire tutti i pasti di ${destName} con quelli copiati? Il contenuto attuale andrà perso.`, () => {
+    planData[weekIdx].days[dayIdx].meals = JSON.parse(JSON.stringify(clipboard.meals));
+    planData[weekIdx].days[dayIdx].corrected = false;
+    saveState();
+    renderMain();
+  });
+}
+
+function copyWeek(weekIdx){
+  const week = planData[weekIdx];
+  const daysMeals = week.days.map(d => JSON.parse(JSON.stringify(d.meals)));
+  setClipboard({ type:'week', label: `${week.name}`, daysMeals });
+}
+function pasteWeekInto(weekIdx){
+  if(!clipboard || clipboard.type !== 'week') return;
+  showConfirm(`Sostituire tutti i pasti di Settimana ${weekIdx+1} con quelli copiati? Il contenuto attuale andrà perso.`, () => {
+    clipboard.daysMeals.forEach((meals, i) => {
+      if(planData[weekIdx].days[i]){
+        planData[weekIdx].days[i].meals = JSON.parse(JSON.stringify(meals));
+        planData[weekIdx].days[i].corrected = false;
+      }
+    });
+    saveState();
+    renderMain();
+    renderWeekActions();
+  });
+}
+
+tabSelector.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentTab = btn.getAttribute('data-tab');
+    tabSelector.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAll();
+  });
+});
+
+function renderWeekActions(){
+  const hasWeekClip = clipboard && clipboard.type === 'week';
+  weekActions.innerHTML = `
+    <div class="copy-btn" id="copyWeekBtn">⧉ Copia settimana</div>
+    ${hasWeekClip ? `<div class="paste-btn" id="pasteWeekBtn">Incolla settimana</div>` : ''}
+  `;
+}
+
+function renderWeekSelector(){
+  weekSelector.innerHTML = '';
+  planData.forEach((w, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'week-btn'
+      + (i === currentWeek ? ' active' : '')
+      + (weekCompleted[i] ? ' completed' : '');
+    btn.innerHTML = `<span class="wk-label">S${i+1}</span><span class="wk-check">✓</span>`;
+    btn.addEventListener('click', () => {
+      currentWeek = i; currentDay = 0; renderAll();
+    });
+    btn.querySelector('.wk-check').addEventListener('click', (e) => {
+      e.stopPropagation();
+      weekCompleted[i] = !weekCompleted[i];
+      saveState();
+      renderAll();
+    });
+    weekSelector.appendChild(btn);
+  });
+}
+
+function centerDayChip(chip){
+  if(!chip) return;
+  const offset = chip.offsetLeft - (dayStrip.clientWidth/2) + (chip.clientWidth/2);
+  dayStrip.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' });
+}
+
+function renderDayStrip(){
+  dayStrip.innerHTML = '';
+  planData[currentWeek].days.forEach((d, i) => {
+    const date = dateForDay(currentWeek, i);
+    const chip = document.createElement('div');
+    const isToday = todayIdx && todayIdx.week === currentWeek && todayIdx.dayIdx === i;
+    chip.className = 'day-chip' + (i === currentDay ? ' active' : '') + (isToday ? ' today' : '');
+    chip.innerHTML = `<span class="d-name">${d.name.slice(0,3)}</span><span class="d-num">${date.getDate()}</span>`;
+    chip.onclick = () => { currentDay = i; renderAll(); };
+    dayStrip.appendChild(chip);
+  });
+}
+
+// ---------- PIANO: editable ingredient rows ----------
+function ingredientRowHTML(weekIdx, dayIdx, mealType, idx, item){
+  const nobuy = item.buy === false ? ' ing-nobuy' : '';
+  return `
+    <div class="ing-row${nobuy}" data-week="${weekIdx}" data-day="${dayIdx}" data-meal="${mealType}" data-idx="${idx}">
+      <div class="ing-name" contenteditable="true" data-field="name">${escapeHtml(item.name)}</div>
+      <div class="ing-qty" contenteditable="true" data-field="qty">${escapeHtml(item.qty)}</div>
+      <div class="ing-copy" data-action="copyIng">⧉</div>
+      <div class="ing-del" data-action="del">✕</div>
+    </div>`;
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function mealCardHTML(weekIdx, dayIdx, mealType, correctedNote){
+  const items = planData[weekIdx].days[dayIdx].meals[mealType];
+  const fixed = FIXED_MEALS.includes(mealType);
+  const rows = items.map((it, idx) => ingredientRowHTML(weekIdx, dayIdx, mealType, idx, it)).join('');
+  const hasIngClip = clipboard && clipboard.type === 'ingredient';
+  const hasMealClip = clipboard && clipboard.type === 'meal';
+  return `
+    <div class="meal-card ${fixed ? 'fixed' : ''}" data-mealcard="${mealType}">
+      <div class="meal-header-row">
+        <p class="meal-label"><span class="dot"></span>${MEAL_LABELS[mealType]}</p>
+        <div class="meal-actions">
+          <div class="copy-btn" data-action="copyMeal" data-meal="${mealType}">⧉ Copia</div>
+          ${hasMealClip ? `<div class="paste-btn" data-action="pasteMeal" data-meal="${mealType}">Incolla</div>` : ''}
+        </div>
+      </div>
+      ${rows}
+      <div class="ing-add" data-add-meal="${mealType}">+ Aggiungi ingrediente</div>
+      ${hasIngClip ? `<div class="paste-btn" data-action="pasteIng" data-meal="${mealType}" style="margin-top:6px;display:inline-block;">Incolla ingrediente</div>` : ''}
+      ${correctedNote ? `<div class="corrected-flag">✎ Corretta rispetto alla bozza precedente</div>` : ''}
+    </div>`;
+}
+
+function renderMain(){
+  const week = planData[currentWeek];
+  const d = week.days[currentDay];
+  const date = dateForDay(currentWeek, currentDay);
+  const isToday = todayIdx && todayIdx.week === currentWeek && todayIdx.dayIdx === currentDay;
+  const cards = MEAL_TYPES.map(mt => mealCardHTML(currentWeek, currentDay, mt, mt==='colazione' && d.corrected)).join('');
+  const hasDayClip = clipboard && clipboard.type === 'day';
+  mainContent.innerHTML = `
+    <div class="day-heading">
+      <div>
+        <h2>${d.name}</h2>
+        <div class="date-sub">${fullDateLabel(date)} ${date.getFullYear()}</div>
+      </div>
+      ${isToday ? '<span class="badge-today">Oggi</span>' : ''}
+    </div>
+    <div class="day-actions">
+      <div class="copy-btn" id="copyDayBtn">⧉ Copia giorno</div>
+      ${hasDayClip ? `<div class="paste-btn" id="pasteDayBtn">Incolla giorno</div>` : ''}
+    </div>
+    ${cards}
+    <div class="divider-note">Acqua ≥1,5L/die · Sale max 5g/die · Tocca un ingrediente per modificarlo</div>
+  `;
+}
+
+// ---------- DELEGA EVENTI PERMANENTE (piu' robusta: non serve riattaccare listener ad ogni render) ----------
+function setupMainContentDelegation(){
+  mainContent.addEventListener('click', (e) => {
+    if(currentTab !== 'piano') return;
+
+    const delBtn = e.target.closest('[data-action="del"]');
+    if(delBtn){
+      const row = delBtn.closest('.ing-row');
+      const weekIdx = parseInt(row.getAttribute('data-week'));
+      const dayIdx = parseInt(row.getAttribute('data-day'));
+      const mealType = row.getAttribute('data-meal');
+      const idx = parseInt(row.getAttribute('data-idx'));
+      planData[weekIdx].days[dayIdx].meals[mealType].splice(idx, 1);
+      saveState();
+      renderMain();
+      return;
+    }
+
+    const copyIngBtn = e.target.closest('[data-action="copyIng"]');
+    if(copyIngBtn){
+      const row = copyIngBtn.closest('.ing-row');
+      const weekIdx = parseInt(row.getAttribute('data-week'));
+      const dayIdx = parseInt(row.getAttribute('data-day'));
+      const mealType = row.getAttribute('data-meal');
+      const idx = parseInt(row.getAttribute('data-idx'));
+      const item = planData[weekIdx].days[dayIdx].meals[mealType][idx];
+      if(item){ copyIngredient(item); renderMain(); }
+      return;
+    }
+
+    const copyMealBtn = e.target.closest('[data-action="copyMeal"]');
+    if(copyMealBtn){
+      const mealType = copyMealBtn.getAttribute('data-meal');
+      copyMeal(mealType, planData[currentWeek].days[currentDay].meals[mealType]);
+      renderMain();
+      return;
+    }
+
+    const pasteMealBtn = e.target.closest('[data-action="pasteMeal"]');
+    if(pasteMealBtn){
+      const mealType = pasteMealBtn.getAttribute('data-meal');
+      pasteMealInto(currentWeek, currentDay, mealType);
+      return;
+    }
+
+    const pasteIngBtn = e.target.closest('[data-action="pasteIng"]');
+    if(pasteIngBtn){
+      const mealType = pasteIngBtn.getAttribute('data-meal');
+      pasteIngredientInto(currentWeek, currentDay, mealType);
+      return;
+    }
+
+    const addBtn = e.target.closest('[data-add-meal]');
+    if(addBtn){
+      const mealType = addBtn.getAttribute('data-add-meal');
+      planData[currentWeek].days[currentDay].meals[mealType].push({name:'', qty:'', buy:true});
+      saveState();
+      renderMain();
+      const rows = mainContent.querySelectorAll(`.meal-card[data-mealcard="${mealType}"] .ing-name`);
+      const last = rows[rows.length-1];
+      if(last){ last.focus(); }
+      return;
+    }
+
+    const copyDayBtn = e.target.closest('#copyDayBtn');
+    if(copyDayBtn){
+      copyDay(currentWeek, currentDay);
+      renderMain();
+      return;
+    }
+    const pasteDayBtn = e.target.closest('#pasteDayBtn');
+    if(pasteDayBtn){
+      pasteDayInto(currentWeek, currentDay);
+      return;
+    }
+  });
+
+  // Salva a ogni lettera (input) e alla fine (focusout): chiudere l'app non perde la modifica
+  mainContent.addEventListener('input', (e) => commitIngredientField(e.target));
+  mainContent.addEventListener('focusout', (e) => commitIngredientField(e.target));
+  function commitIngredientField(target){
+    const field = target.closest && target.closest('[contenteditable]');
+    if(!field) return;
+    const row = field.closest('.ing-row');
+    if(!row) return;
+    const weekIdx = parseInt(row.getAttribute('data-week'));
+    const dayIdx = parseInt(row.getAttribute('data-day'));
+    const mealType = row.getAttribute('data-meal');
+    const idx = parseInt(row.getAttribute('data-idx'));
+    const key = field.getAttribute('data-field');
+    const val = field.textContent.trim();
+    const item = planData[weekIdx] && planData[weekIdx].days[dayIdx] && planData[weekIdx].days[dayIdx].meals[mealType][idx];
+    if(!item) return;
+    item[key] = val;
+    saveState();
+  }
+
+  mainContent.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && e.target.closest('[contenteditable]')){
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+}
+setupMainContentDelegation();
+
+// weekActions (Copia/Incolla settimana) - delega permanente
+weekActions.addEventListener('click', (e) => {
+  if(e.target.closest('#copyWeekBtn')){
+    copyWeek(currentWeek);
+    renderWeekActions();
+    renderMain();
+    return;
+  }
+  if(e.target.closest('#pasteWeekBtn')){
+    pasteWeekInto(currentWeek);
+    return;
+  }
+});
+
+// ---------- LISTA SPESA: aggregazione dinamica ----------
+function parseQtyNum(q){
+  if(!q) return null;
+  const mg = q.match(/^([\d.,]+)\s*(g|kg|ml|l)$/i);
+  if(mg) return { num: parseFloat(mg[1].replace(',','.')), unit: mg[2].toLowerCase() };
+  const mp = q.match(/^(\d+)\s*pz$/i);
+  if(mp) return { num: parseInt(mp[1]), unit: 'pz' };
+  const mc = q.match(/^(\d+)\s*confezion[ei]?$/i);
+  if(mc) return { num: parseInt(mc[1]), unit: 'confezioni' };
+  const mb = q.match(/^(\d+)\s*bustin[ae]$/i);
+  if(mb) return { num: parseInt(mb[1]), unit: 'bustine' };
+  return null;
+}
+
+function formatTotal(num, unit){
+  let n = Math.round(num*10)/10;
+  if(unit === 'g' && n >= 1000){ return (Math.round(n/100)/10) + ' kg'; }
+  if(unit === 'ml' && n >= 1000){ return (Math.round(n/100)/10) + ' l'; }
+  if(n % 1 === 0) n = n.toFixed(0);
+  const unitLabel = {pz:'pz', confezioni:'confezioni', bustine:'bustine', g:'g', ml:'ml', kg:'kg', l:'l'}[unit] || unit;
+  return `${n} ${unitLabel}`;
+}
+
+function aggregateQtyDisplay(entries){
+  const parsed = entries.map(e => parseQtyNum(e.qty));
+  if(parsed.every(p => p)){
+    const unit = parsed[0].unit;
+    if(parsed.every(p => p.unit === unit)){
+      const sum = parsed.reduce((a,p) => a+p.num, 0);
+      return formatTotal(sum, unit);
+    }
+  }
+  const uniq = [...new Set(entries.map(e => e.qty))];
+  if(uniq.length === 1) return `${uniq[0]} × ${entries.length}`;
+  return `${entries.length} voci diverse`;
+}
+
+function computeShoppingList(weekIdx){
+  const week = planData[weekIdx];
+  const map = {}; // key (name only) -> {name, entries:[]}
+  week.days.forEach((day, dayIdx) => {
+    MEAL_TYPES.forEach(mealType => {
+      day.meals[mealType].forEach(item => {
+        if(item.buy === false) return;
+        const name = (item.name||'').trim();
+        if(!name) return;
+        const key = name.toLowerCase();
+        if(!map[key]) map[key] = { name, entries: [] };
+        map[key].entries.push({ day: day.name, dayIdx, meal: MEAL_LABELS[mealType], qty: item.qty || 'q.b.' });
+      });
+    });
+  });
+  return Object.values(map).sort((a,b) => a.name.localeCompare(b.name, 'it'));
+}
+
+function renderShopping(){
+  const items = computeShoppingList(currentWeek);
+  let html = `<div class="fixed-banner">✎ I minestroni sono considerati esclusivamente già pronti (es. Buitoni leggero) — non rientrano tra le verdure fresche. Voci uguali comparse in pasti o giorni diversi sono unite in un'unica riga: tocca ⓘ per il dettaglio giorno per giorno e pasto per pasto.</div>`;
+  html += `<div class="shop-section">`;
+  items.forEach((it) => {
+    const key = `${currentWeek}::${it.name.toLowerCase()}`;
+    const done = !!shopCheckedState[key];
+    const qtyDisplay = aggregateQtyDisplay(it.entries);
+    html += `
+      <div class="shop-item ${done ? 'done' : ''}" data-key="${escapeHtml(key)}">
+        <div class="shop-check ${done ? 'checked' : ''}" data-action="toggle">${done ? '✓' : ''}</div>
+        <div class="shop-text" data-action="toggle">
+          <div class="shop-name">${escapeHtml(it.name)} — <span class="shop-qty">${qtyDisplay}</span></div>
+          <div class="shop-meta">${it.entries.length} occorrenza${it.entries.length>1?'e':''} questa settimana</div>
+        </div>
+        <div class="info-btn" data-action="info" data-infokey="${escapeHtml(key)}">ⓘ</div>
+      </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="shop-section"><h3>Altri articoli (non legati al piano alimentare)</h3>`;
+  extraItems[currentWeek].forEach((it, idx) => {
+    const done = !!it.done;
+    html += `
+      <div class="shop-item ${done ? 'done' : ''}" data-extra-idx="${idx}">
+        <div class="shop-check ${done ? 'checked' : ''}" data-action="toggleExtra">${done ? '✓' : ''}</div>
+        <div class="ing-name" contenteditable="true" data-extra-field="name" style="flex:1;">${escapeHtml(it.name)}</div>
+        <div class="ing-qty" contenteditable="true" data-extra-field="qty">${escapeHtml(it.qty)}</div>
+        <div class="ing-del" data-action="delExtra">✕</div>
+      </div>`;
+  });
+  html += `<div class="ing-add" id="addExtraItemBtn">+ Aggiungi articolo</div>`;
+  html += `</div>`;
+
+  html += `<div class="divider-note">Sale, aceto, limone e spezie: q.b., secondo gradimento</div>`;
+  html += `<div class="account-line">Account: ${escapeHtml(currentUser ? currentUser.email : '')} · <span id="logoutLink">Esci</span></div>`;
+  html += `<div class="reset-link" id="exportDataLink">⬇️ Esporta backup dei miei dati (per aggiornamenti futuri)</div>`;
+  html += `<div class="reset-link" id="importDataLink">⬆️ Importa backup dati</div><input type="file" id="importFileInput" accept="application/json" style="display:none;">`;
+  html += `<div class="reset-link" id="resetPlanLink">Svuota il piano (cancella tutti i pasti)</div>`;
+  mainContent.innerHTML = html;
+
+  attachExtraItemHandlers();
+
+  const exportLink = document.getElementById('exportDataLink');
+  if(exportLink){
+    exportLink.addEventListener('click', () => {
+      const payload = { ...currentState(), exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const d = new Date();
+      const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      a.href = url;
+      a.download = `piano_backup_${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    });
+  }
+
+  const importLink = document.getElementById('importDataLink');
+  const importFileInput = document.getElementById('importFileInput');
+  if(importLink && importFileInput){
+    importLink.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const saved = JSON.parse(reader.result);
+          if(saved && Array.isArray(saved.planData) && saved.planData.length === planData.length){
+            showConfirm('Importare questo backup? I dati attualmente presenti nell\'app verranno sostituiti.', () => {
+              applyState({ appTitle, appSubtitle, ...saved });
+              saveState();
+              refreshUI();
+            });
+          } else {
+            showConfirm('Il file selezionato non sembra un backup valido di questa app.', () => {});
+          }
+        }catch(err){
+          showConfirm('Impossibile leggere questo file: non è un backup JSON valido.', () => {});
+        }
+        importFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  const resetLink = document.getElementById('resetPlanLink');
+  if(resetLink){
+    resetLink.addEventListener('click', () => {
+      showConfirm('Vuoi davvero cancellare tutti i pasti di tutte le settimane? Questa azione non si può annullare.', () => {
+        applyState({ appTitle, appSubtitle, cycle: currentCycle });
+        saveState();
+        refreshUI();
+      }, 'Sì, svuota');
+    });
+  }
+
+  const logoutLink = document.getElementById('logoutLink');
+  if(logoutLink) logoutLink.addEventListener('click', logout);
+
+  const entriesLookup = {};
+  items.forEach(it => {
+    const key = `${currentWeek}::${it.name.toLowerCase()}`;
+    entriesLookup[key] = it;
+  });
+
+  mainContent.querySelectorAll('.shop-item').forEach(el => {
+    const key = el.getAttribute('data-key');
+    el.querySelectorAll('[data-action="toggle"]').forEach(part => {
+      part.addEventListener('click', () => {
+        shopCheckedState[key] = !shopCheckedState[key];
+        saveState();
+        renderShopping();
+      });
+    });
+    const infoBtn = el.querySelector('[data-action="info"]');
+    if(infoBtn){
+      infoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showInfoSheet(entriesLookup[key]);
+      });
+    }
+  });
+}
+
+function attachExtraItemHandlers(){
+  mainContent.querySelectorAll('[data-extra-idx]').forEach(row => {
+    const idx = parseInt(row.getAttribute('data-extra-idx'));
+
+    row.querySelectorAll('[data-extra-field]').forEach(field => {
+      const commit = () => {
+        const key = field.getAttribute('data-extra-field');
+        const val = field.textContent.trim();
+        const item = extraItems[currentWeek][idx];
+        if(!item) return;
+        item[key] = val;
+        saveState();
+      };
+      field.addEventListener('input', commit);
+      field.addEventListener('focusout', commit);
+      field.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter'){ e.preventDefault(); field.blur(); }
+      });
+    });
+
+    const delBtn = row.querySelector('[data-action="delExtra"]');
+    if(delBtn){
+      delBtn.addEventListener('click', () => {
+        extraItems[currentWeek].splice(idx, 1);
+        saveState();
+        renderShopping();
+      });
+    }
+
+    const checkBtn = row.querySelector('[data-action="toggleExtra"]');
+    if(checkBtn){
+      checkBtn.addEventListener('click', () => {
+        const item = extraItems[currentWeek][idx];
+        if(!item) return;
+        item.done = !item.done;
+        saveState();
+        renderShopping();
+      });
+    }
+  });
+
+  const addBtn = document.getElementById('addExtraItemBtn');
+  if(addBtn){
+    addBtn.addEventListener('click', () => {
+      extraItems[currentWeek].push({name:'', qty:''});
+      saveState();
+      renderShopping();
+      const rows = mainContent.querySelectorAll('[data-extra-idx] .ing-name');
+      const last = rows[rows.length-1];
+      if(last){ last.focus(); }
+    });
+  }
+}
+
+function showInfoSheet(item){
+  const rows = item.entries.map(en => `
+    <div class="sheet-row">
+      <div>
+        <div class="sheet-day">${escapeHtml(en.day)}</div>
+        <div class="sheet-meal">${escapeHtml(en.meal)}</div>
+      </div>
+      <div class="sheet-qty">${escapeHtml(en.qty)}</div>
+    </div>`).join('');
+  infoSheet.innerHTML = `
+    <h4>${escapeHtml(item.name)}</h4>
+    ${rows}
+    <div class="sheet-close" id="sheetCloseBtn">Chiudi</div>
+  `;
+  infoOverlay.classList.remove('hidden');
+  document.getElementById('sheetCloseBtn').addEventListener('click', hideInfoSheet);
+}
+function hideInfoSheet(){ infoOverlay.classList.add('hidden'); }
+infoOverlay.addEventListener('click', (e) => { if(e.target === infoOverlay) hideInfoSheet(); });
+
+function showConfirm(message, onYes, yesLabel = 'Sì, sostituisci'){
+  infoSheet.innerHTML = `
+    <h4>Conferma</h4>
+    <div style="padding:2px 0 16px; font-size:0.92rem; line-height:1.4; color:var(--ink);">${escapeHtml(message)}</div>
+    <div style="display:flex; gap:10px;">
+      <div class="sheet-close" id="confirmYesBtn" style="flex:1;">${escapeHtml(yesLabel)}</div>
+      <div class="sheet-close" id="confirmNoBtn" style="flex:1; background:#8a8266;">Annulla</div>
+    </div>
+  `;
+  infoOverlay.classList.remove('hidden');
+  document.getElementById('confirmYesBtn').addEventListener('click', () => {
+    hideInfoSheet();
+    onYes();
+  });
+  document.getElementById('confirmNoBtn').addEventListener('click', hideInfoSheet);
+}
+
+// ---------- MAIN RENDER ----------
+function renderAll(){
+  const date = dateForDay(currentWeek, 0);
+  const dateEnd = dateForDay(currentWeek, 6);
+  weekPill.textContent = planData[currentWeek].name + (weekCompleted[currentWeek] ? ' ✓' : '');
+  weekPill.title = `${shortDateLabel(date)} – ${shortDateLabel(dateEnd)}`;
+  renderWeekSelector();
+  renderWeekActions();
+
+  if(currentTab === 'piano'){
+    dayStrip.style.display = 'flex';
+    navFooter.style.display = 'flex';
+    renderDayStrip();
+    renderMain();
+    const activeChip = dayStrip.querySelector('.day-chip.active');
+    if(activeChip) centerDayChip(activeChip);
+  } else {
+    dayStrip.style.display = 'none';
+    navFooter.style.display = 'none';
+    renderShopping();
+  }
+  window.scrollTo(0,0);
+}
+
+document.getElementById('prevBtn').onclick = () => {
+  if(currentDay > 0){ currentDay--; }
+  else if(currentWeek > 0){ currentWeek--; currentDay = 6; }
+  renderAll();
+};
+document.getElementById('nextBtn').onclick = () => {
+  if(currentDay < 6){ currentDay++; }
+  else if(currentWeek < planData.length - 1){ currentWeek++; currentDay = 0; }
+  renderAll();
+};
+document.getElementById('todayBtn').onclick = () => {
+  const t = computeTodayIndex();
+  if(t){ currentWeek = t.week; currentDay = t.dayIdx; }
+  else { currentWeek = 0; currentDay = 0; }
+  renderAll();
+};
+
+// swipe support (richiede movimento chiaramente orizzontale, per non confonderlo con lo scroll verticale)
+let touchStartX = 0;
+let touchStartY = 0;
+document.getElementById('app').addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, {passive:true});
+document.getElementById('app').addEventListener('touchend', e => {
+  if(currentTab !== 'piano') return;
+  if(e.target.closest('.ing-row') || e.target.closest('.ing-add') || e.target.closest('.copy-btn') || e.target.closest('.paste-btn') || e.target.closest('.day-strip')) return;
+  const dx = e.changedTouches[0].screenX - touchStartX;
+  const dy = e.changedTouches[0].screenY - touchStartY;
+  const isHorizontalSwipe = Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2.5;
+  if(isHorizontalSwipe){
+    if(dx < 0) document.getElementById('nextBtn').click();
+    else document.getElementById('prevBtn').click();
+  }
+}, {passive:true});
+
+const appTitleEl = document.getElementById("appTitle");
+const appSubtitleEl = document.getElementById("appSubtitle");
+function renderTitles(){
+  appTitleEl.textContent = appTitle;
+  appSubtitleEl.textContent = appSubtitle;
+}
+function refreshUI(){ renderTitles(); renderAll(); }
+const commitTitle = () => {
+  appTitle = appTitleEl.textContent.trim() || DEFAULT_TITLE;
+  saveState();
+};
+appTitleEl.addEventListener("input", commitTitle);
+appTitleEl.addEventListener("focusout", commitTitle);
+const commitSubtitle = () => {
+  appSubtitle = appSubtitleEl.textContent.trim() || DEFAULT_SUBTITLE;
+  saveState();
+};
+appSubtitleEl.addEventListener("input", commitSubtitle);
+appSubtitleEl.addEventListener("focusout", commitSubtitle);
+refreshUI();
+initAuth();
+
+// Registra il service worker per aggiornamenti automatici e uso offline
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
