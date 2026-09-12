@@ -19,6 +19,8 @@ Si pubblica con un push su `main`: GitHub Pages pubblica la radice del repositor
 2. **Dopo il push si fa un riepilogo** con l'utente: cosa è andato online e cosa provare sul telefono.
 3. **A ogni rilascio si cambia `CACHE_VERSION`** in `service-worker.js` (`piano-v17` → `piano-v18`),
    altrimenti i telefoni continuano a usare la versione in cache.
+4. **Se cambia qualcosa per chi usa l'app, si aggiunge una voce in cima a `NEWS`** in `index.html`
+   (id = la data, frasi corte con un'emoji davanti). Ognuno la vede una volta sola, alla prima apertura.
 
 ## Struttura
 
@@ -86,7 +88,9 @@ Senza rete l'app funziona lo stesso e rispedisce al ritorno della linea.
 
 ## Segnalazioni
 
-Bug e idee arrivano dalla nuvoletta 💬 nella tabella `segnalazioni`. Quando l'utente parla di
+Bug e idee arrivano dalla nuvoletta 💬 nella tabella `segnalazioni`. L'amministratore vede una striscia
+"📬 N segnalazioni nuove" (`checkNotices`), gli altri un pallino rosso sulla 💬 quando una loro diventa "Fatta".
+Quello già visto sta nel profilo (`fbSeen`, `fbDoneSeen`, `newsSeen`), cioè nell'account. Quando l'utente parla di
 "lista di bug e migliorie" intende quelle aperte. Quelle chiare si risolvono, per quelle aperte
 a più strade prima si propone un brainstorming. Dopo il rilascio si segnano come "Fatta",
 dal Profilo dell'amministratore.

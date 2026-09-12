@@ -830,6 +830,39 @@
     cursor:pointer;
   }
   .fb-fab:active{ opacity:1; }
+  /* pallino rosso: una tua segnalazione è stata risolta */
+  .fb-fab.has-news{ opacity:1; }
+  .fb-fab.has-news::after{
+    content:'';
+    position:absolute; top:-3px; right:-3px;
+    width:12px; height:12px; border-radius:50%;
+    background:#d23c2a;
+    border:2px solid var(--cream);
+  }
+  /* striscia per l'amministratore: segnalazioni nuove */
+  .admin-banner{
+    display:flex; align-items:center; gap:8px;
+    margin:10px 20px 0;
+    padding:11px 14px;
+    border-radius:12px;
+    background:var(--clay); color:#fff;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); font-weight:700;
+    box-shadow:0 2px 10px rgba(0,0,0,0.12);
+    cursor:pointer;
+  }
+  .admin-banner[hidden]{ display:none; }
+  .admin-banner-open{ margin-left:auto; white-space:nowrap; }
+  /* NOVITÀ */
+  .news-list{ list-style:none; margin:0 0 6px; padding:0; }
+  .news-list li{
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); line-height:1.45;
+    color:var(--ink);
+    padding:8px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .news-list li:last-child{ border-bottom:none; }
   textarea.fb-text{ margin-top:10px; }
   .fb-item{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; background:var(--paper); }
   .fb-item.done{ opacity:0.6; }
@@ -1188,6 +1221,8 @@
     <div class="weeks" id="weekSelector"></div>
   </header>
 
+  <div class="admin-banner" id="adminBanner" role="button" hidden>📬 <span id="adminBannerText"></span><span class="admin-banner-open">Apri ›</span></div>
+
   <div class="clip-banner" id="clipBanner">
     <span id="clipLabel"></span>
     <span class="clip-clear" id="clipClearBtn">Svuota appunti</span>
@@ -1426,6 +1461,7 @@ async function syncWithCloud(){
   // se su questo telefono c'e' il piano della vecchia versione lo propone
   const prevStart = profile.startDate;
   profile.startDate = toISODate(mondayOf(new Date(now_date())));
+  profile.newsSeen = NEWS[0].id; // un account nuovo non ha novità da leggere
   applyProfile(prevStart);
   refreshUI();
   saveState();
@@ -1527,7 +1563,9 @@ async function startForUser(user){
   refreshUI();
   if(navigator.onLine && await accountGone()){ await forceLogoutDeleted(); return; }
   await syncWithCloud();
-  checkAdmin();
+  if(!currentUser || currentUser.id !== user.id) return;
+  maybeShowNews();
+  checkNotices();
 }
 // L'account è stato cancellato da Supabase? (il "pass" del login resta valido fino a un'ora, getUser lo verifica sul server)
 async function accountGone(){
@@ -1545,6 +1583,8 @@ async function forceLogoutDeleted(){
 function stopForUser(){
   currentUser = null;
   isAdmin = false;
+  showAdminBanner(0);
+  setFabDot(false);
   clearTimeout(cloudTimer); cloudTimer = null;
   applyState(null);
   refreshUI();
@@ -1638,8 +1678,9 @@ function initAuth(){
     refreshToday();
     const local = readJSON(localKey());
     if(local && local.dirty) pushToCloud(); else syncWithCloud();
+    checkNotices();
   });
-  window.addEventListener('online', () => { if(currentUser) syncWithCloud(); });
+  window.addEventListener('online', () => { if(currentUser){ syncWithCloud(); checkNotices(); } });
   window.addEventListener('offline', () => { if(currentUser) setSync('offline'); });
 }
 
@@ -3069,6 +3110,7 @@ function renderProfile(){
     <div class="profile-msg" id="pwMsg"></div>
 
     <h5>I tuoi dati</h5>
+    <div class="profile-link" id="newsLink">✨ Novità dell'app</div>
     <div class="profile-link" id="exportDataLink">⬇️ Esporta backup</div>
     <div class="profile-link" id="importDataLink">⬆️ Importa backup</div>
     <div class="profile-link danger" id="resetPlanLink">Svuota il piano (cancella tutti i pasti)</div>
@@ -3169,6 +3211,7 @@ function initProfile(){
       return;
     }
     if(e.target.closest('#changePwBtn')) return changePassword();
+    if(e.target.closest('#newsLink')){ closeProfile(); return showNews(NEWS.slice(0, 3)); }
     if(e.target.closest('#exportDataLink')) return exportBackup();
     if(e.target.closest('#importDataLink')) return importFileInput.click();
     if(e.target.closest('#resetPlanLink')) return confirmEmptyPlan();
@@ -3362,6 +3405,10 @@ async function loadMyReports(){
   if(!box) return;
   if(error){ box.innerHTML = `<div class="sheet-hint">${navigator.onLine ? 'Non riesco a caricarle adesso.' : 'Senza internet non posso mostrarle.'}</div>`; return; }
   myReports = data;
+  // Viste le proprie segnalazioni: il pallino rosso si spegne finché un'altra non diventa "Fatta"
+  const done = data.filter(r => r.stato === 'fatta').map(r => r.id);
+  if(done.some(id => !(profile.fbDoneSeen || []).includes(id))){ profile.fbDoneSeen = done; saveState(); }
+  setFabDot(false);
   box.innerHTML = data.length ? data.map(r => reportHTML(r, false)).join('') : '<div class="sheet-hint">Ancora nessuna.</div>';
 }
 async function loadAdminReports(){
@@ -3370,6 +3417,10 @@ async function loadAdminReports(){
   const box = document.getElementById('fbAdmin');
   if(!box) return;
   if(error){ box.innerHTML = '<div class="sheet-hint">Non riesco a caricarle adesso.</div>'; return; }
+  // Viste dall'amministratore: la striscia sparisce fino alla prossima segnalazione nuova
+  const newest = data.reduce((m, r) => Math.max(m, r.id), 0);
+  if(newest > (profile.fbSeen || 0)){ profile.fbSeen = newest; saveState(); }
+  showAdminBanner(0);
   const open = data.filter(r => r.stato !== 'fatta');
   document.getElementById('fbCount').textContent = open.length ? ` · ${open.length} da vedere` : '';
   const sorted = open.concat(data.filter(r => r.stato === 'fatta')); // prima quelle da fare
@@ -3388,6 +3439,65 @@ function adminDelete(id){
   }, 'Sì, elimina');
 }
 document.getElementById('fbFab').addEventListener('click', openFeedback);
+
+// Avvisi: all'amministratore la striscia delle segnalazioni nuove (non le sue), a tutti il pallino rosso sulla 💬
+// quando una propria segnalazione è stata segnata "Fatta". Si controlla all'accesso e quando si torna sull'app.
+// Quello già visto sta nel profilo (fbSeen, fbDoneSeen), quindi vale per l'account e non per il telefono.
+async function checkNotices(){
+  if(!currentUser || !navigator.onLine) return;
+  const uid = currentUser.id;
+  await checkAdmin();
+  if(!currentUser || currentUser.id !== uid) return;
+  if(isAdmin){
+    const { count, error } = await sb.from('segnalazioni').select('id', { count: 'exact', head: true })
+      .eq('stato', 'nuova').neq('user_id', uid).gt('id', profile.fbSeen || 0);
+    if(!error && currentUser && currentUser.id === uid) showAdminBanner(count || 0);
+  } else showAdminBanner(0);
+  const { data, error } = await sb.from('segnalazioni').select('id').eq('user_id', uid).eq('stato', 'fatta');
+  if(error || !currentUser || currentUser.id !== uid) return;
+  const seen = profile.fbDoneSeen || [];
+  setFabDot(data.some(r => !seen.includes(r.id)));
+}
+function showAdminBanner(n){
+  document.getElementById('adminBanner').hidden = !n;
+  if(n) document.getElementById('adminBannerText').textContent = n === 1 ? '1 segnalazione nuova' : `${n} segnalazioni nuove`;
+}
+function setFabDot(on){ document.getElementById('fbFab').classList.toggle('has-news', !!on); }
+document.getElementById('adminBanner').addEventListener('click', () => {
+  openProfile();
+  setTimeout(() => { const box = document.getElementById('fbAdmin'); if(box) box.previousElementSibling.scrollIntoView({ block: 'start' }); }, 50);
+});
+
+// ---------- NOVITÀ: cosa è cambiato, mostrato una volta sola per account (profile.newsSeen) ----------
+// A ogni rilascio che cambia qualcosa per chi usa l'app si aggiunge una voce IN CIMA, con un id nuovo (la data).
+const NEWS = [
+  { id: '2026-09-12', title: 'Settembre 2026', items: [
+    '🏠 Nuova sezione "In casa" in cima alla Lista spesa: segna quello che hai già e viene tolto dalla spesa. Quando lo finisci, toglilo col 🗑.',
+    '🛒 Hai preso meno (o più) del previsto? Dopo la spunta tocca "Preso solo in parte?" e scrivi quanto: quello che manca resta in lista.',
+    'ⓘ Nella scheda di un prodotto della spesa trovi subito reparto, conservazione e confezione; i giorni sono in una tendina.',
+    '📱 L\'app si usa anche col telefono in orizzontale.',
+    '📅 L\'app si apre sempre sul giorno giusto, anche se era rimasta aperta da ieri.',
+    '💬 Un pallino rosso sulla nuvoletta ti avvisa quando una tua segnalazione è stata risolta.',
+  ]},
+];
+function showNews(list){
+  infoSheet.innerHTML = `
+    <h4>✨ Novità dell'app</h4>
+    ${list.map(n => `<h5>${escapeHtml(n.title)}</h5><ul class="news-list">${n.items.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>`).join('')}
+    <div class="sheet-close" id="newsOk">Ho capito</div>`;
+  infoOverlay.classList.remove('hidden');
+  document.getElementById('newsOk').addEventListener('click', hideInfoSheet);
+}
+// Alla prima apertura dopo un aggiornamento: si segna subito come vista (e si salva coi dati), così non torna più
+function maybeShowNews(){
+  const latest = NEWS[0].id;
+  if(!currentUser || profile.newsSeen === latest) return;
+  const unseen = NEWS.filter(n => !profile.newsSeen || n.id > profile.newsSeen).slice(0, 3);
+  profile.newsSeen = latest;
+  saveState();
+  if(!infoOverlay.classList.contains('hidden')) return; // c'è già una scheda aperta: si rilegge dal Profilo
+  showNews(unseen);
+}
 
 // ---------- TASTO INDIETRO (Android): chiude schede e pannelli invece di uscire dall'app ----------
 // In cronologia c'è sempre una "pagina di guardia": ogni "indietro" la consuma, noi chiudiamo quello
