@@ -73,7 +73,8 @@ Senza rete l'app funziona lo stesso e rispedisce al ritorno della linea.
    per gli intervalli conta il massimo, "q.b." non si somma.
 7. **In casa lo cambia solo l'utente.** L'app non sa cosa si mangia davvero, quindi non lo consuma coi giorni
    e non ci mette niente da sola: gli avanzi (confezioni, "preso di più") si propongono col tasto "🏠 Metti in casa".
-   Copre la parte non presa delle prossime volte, da oggi in avanti (`computeHomeCover`).
+   Si toglie dalla spesa che si sta guardando, qualunque giorno sia: copre la parte non presa delle volte,
+   lista dopo lista, senza contarlo due volte (`computeHomeCover(lists)`). La casella "–" è solo per gli acquisti.
 8. **Una spunta vale `true` (presa tutta) o una quantità (presa in parte, in unità base).** Si legge con `boughtOf`.
    La tendina "Preso solo in parte?" (`applyPartial`) torna a prima della spunta e segna quanto preso davvero,
    volta per volta in ordine di data. Resta visibile e annullabile finché la voce non è presa tutta:

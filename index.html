@@ -2219,16 +2219,16 @@ let partialOpenKey = null; // la tendina aperta
 function todayISO(){ return toISODate(now_date()); }
 function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
 
-// Da oggi in avanti, quello che c'è in casa copre la parte non ancora presa delle volte, in ordine di data
-function computeHomeCover(){
+// Quello che c'è in casa si toglie dalla spesa che si sta guardando: copre la parte non ancora presa delle volte,
+// lista dopo lista (prima spesa, poi seconda), senza contarlo due volte. Ogni schermata parte da quello che hai adesso.
+function computeHomeCover(lists){
   homeCover = {};
-  if(!todayIdx || !Object.keys(homeStock).length) return;
-  const slots = [];
-  for(let i = 0; i < PLAN_DAYS * 2; i++){ const n = todayIdx.dayIdx + i; slots.push({ w: todayIdx.week + Math.floor(n / 7), d: n % 7 }); }
-  collectItems(slots, null).forEach(it => {
+  if(!Object.keys(homeStock).length) return;
+  const leftOf = {};
+  lists.forEach(list => list.items.forEach(it => {
     const s = homeStock[it.key];
     if(!s) return;
-    let left = s.amount == null ? Infinity : s.amount;
+    let left = it.key in leftOf ? leftOf[it.key] : (s.amount == null ? Infinity : s.amount);
     for(const e of it.entries){
       if(left <= 1e-9) break;
       const b = boughtOf(e);
@@ -2242,7 +2242,8 @@ function computeHomeCover(){
       homeCover[e.ek] = c >= need - 1e-9 ? 'all' : c;
       left -= c;
     }
-  });
+    leftOf[it.key] = left;
+  }));
 }
 // Si usa solo quando lo chiede l'utente ("🏠 Metti in casa")
 function addStock(name, n, unit){
@@ -2323,7 +2324,7 @@ function applyPartial(shopKey, amount){
   const it = shopIndex[shopKey], memo = tickMemo[shopKey], base = memo && memo.base;
   if(!it || !base) return;
   restoreItem(it, base);
-  computeHomeCover();
+  computeHomeCover(shoppingLists());
   let left = amount;
   for(const en of it.entries){
     if(left <= 1e-9) break;
@@ -2402,7 +2403,7 @@ function homeBoxHTML(){
   return `
     <details class="home-box" id="homeBox"${homeOpen ? ' open' : ''}>
       <summary>🏠 In casa${items.length ? ` · ${items.length} ${items.length === 1 ? 'prodotto' : 'prodotti'}` : ''}</summary>
-      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa. L'app non sa quando lo usi: quando lo finisci o ne usi un po', aggiornalo tu (tocca la riga).</div>
+      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa che stai guardando. L'app non sa quando lo usi: quando lo finisci o ne usi un po', aggiornalo tu (tocca la riga).</div>
       ${rows || '<div class="shop-empty">Niente per ora.</div>'}
       <div class="ing-add" data-home-add>+ Aggiungi quello che hai in casa</div>
     </details>`;
@@ -2480,12 +2481,14 @@ function openHomeEditor(key, presetKey){
       const more = !prev || prev.amount == null || n > prev.amount;
       homeStock[k] = { name, amount: n, unit, since: more ? today : (prev.since || today) };
     }
+    partialOffer = null; // cambiato quello in casa: la tendina della voce appena spuntata non vale più
     saveState();
     hideInfoSheet();
     renderShopping();
   });
   if(s) document.getElementById('homeDel').addEventListener('click', () => {
     delete homeStock[key];
+    partialOffer = null;
     saveState();
     hideInfoSheet();
     renderShopping();
@@ -2508,8 +2511,8 @@ function migrateOldChecks(){
 }
 
 function renderShopping(){
-  computeHomeCover();
   const lists = shoppingLists();
+  computeHomeCover(lists);
   shopIndex = {};
   const desc = {
     settimana: 'Tutto quello che serve per la settimana, diviso per reparto.',
@@ -2581,12 +2584,13 @@ function shopListHTML(list){
       if(st.bought.length) got.push(`già presi ${sumQty(st.bought)}`);
       if(st.home.length && !unCounted) got.push(`🏠 in casa ${sumQty(st.home)}`);
       const meta = unCounted ? '🏠 ce l\'hai in casa'
-        : got.length ? `${escapeHtml(got.join(' · '))} su ${escapeHtml(total)}`
+        : got.length ? `servono ${escapeHtml(total)} · ${escapeHtml(got.join(' · '))}`
         : `${n === 1 ? '1 volta' : n + ' volte'} · si conserva: ${escapeHtml(durataLabel(it.info.durata).toLowerCase())}`;
       const fromHome = st.done && !st.bought.length;
+      const half = !st.done && st.bought.length > 0; // "–" solo se se n'è comprato una parte, non per quello che c'è in casa
       html += `
         <div class="shop-item ${st.done ? 'done' : ''}${st.partial ? ' partial' : ''}" data-check="${escapeHtml(key)}">
-          <div class="shop-check ${st.done ? 'checked' : ''}${st.partial ? ' half' : ''}" data-action="toggle">${st.done ? (fromHome ? '🏠' : '✓') : st.partial ? '–' : ''}</div>
+          <div class="shop-check ${st.done ? 'checked' : ''}${half ? ' half' : ''}" data-action="toggle">${st.done ? (fromHome ? '🏠' : '✓') : half ? '–' : ''}</div>
           <div class="shop-text" data-action="toggle">
             <div class="shop-name">${escapeHtml(it.name)} — <span class="shop-qty">${escapeHtml(st.done ? total : shopQtyText(it.name, st.partial ? remainingQtys(it) : it.entries.map(e => e.qty)))}</span></div>
             <div class="shop-meta">${meta}</div>
