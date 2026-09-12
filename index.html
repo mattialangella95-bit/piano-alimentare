@@ -1113,8 +1113,17 @@
   .partial-box summary::-webkit-details-marker{ display:none; }
   .partial-box summary::after{ content:'▾'; transition:transform 0.15s; }
   .partial-box[open] summary::after{ transform:rotate(180deg); }
+  .partial-box.marked summary{ background:var(--forest); color:#fff; }
   .partial-box .sheet-hint{ margin:8px 0 6px; }
   .partial-save{ padding:9px 14px; }
+  .partial-undo{
+    display:inline-block;
+    margin-top:10px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); font-weight:700;
+    color:var(--clay);
+    cursor:pointer;
+  }
   .days-toggle summary, .home-box summary{
     list-style:none;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1312,6 +1321,7 @@ const shopCheckedState = {}; // key -> bool
 let extraItems = [[],[],[],[]]; // articoli extra per settimana, non legati al piano alimentare
 let products = {}; // correzioni dell'utente su reparto e conservazione, per nome prodotto (minuscolo)
 let homeStock = {}; // quello che c'è in casa, per nome prodotto (minuscolo): vedi la sezione IN CASA
+let tickMemo = {};  // voce della lista → com'era prima delle spunte, per annullarle e per "Preso solo in parte?"
 let appTitle = 'Il mio Piano Alimentare';
 let appSubtitle = 'Tocca per personalizzare';
 
@@ -1345,7 +1355,7 @@ function localKey(){ return `piano_utente_${currentUser.id}`; }
 function readJSON(key){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
 function writeJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
 function currentState(){
-  return { planData, weekCompleted, shopCheckedState, extraItems, products, homeStock, appTitle, appSubtitle, profile, cycle: currentCycle, dataVersion: DATA_VERSION };
+  return { planData, weekCompleted, shopCheckedState, extraItems, products, homeStock, tickMemo, appTitle, appSubtitle, profile, cycle: currentCycle, dataVersion: DATA_VERSION };
 }
 
 // Ogni modifica: subito sul telefono, un attimo dopo su Supabase
@@ -1431,6 +1441,7 @@ function applyState(saved){
   extraItems = [[],[],[],[]];
   products = {};
   homeStock = {};
+  tickMemo = {};
   appTitle = DEFAULT_TITLE;
   appSubtitle = DEFAULT_SUBTITLE;
   const prevStart = profile.startDate;
@@ -1453,6 +1464,7 @@ function applyState(saved){
   if(saved.profile && typeof saved.profile === 'object') profile = { ...defaultProfile(), ...saved.profile };
   if(saved.products && typeof saved.products === 'object') products = saved.products;
   if(saved.homeStock && typeof saved.homeStock === 'object') homeStock = saved.homeStock;
+  if(saved.tickMemo && typeof saved.tickMemo === 'object') tickMemo = saved.tickMemo;
   applyProfile(prevStart);
   migrateExtraChecks();
   let needsSave = false;
@@ -1480,6 +1492,7 @@ function resetProgress(shiftWeeks = Infinity){
   Object.keys(shopCheckedState).forEach(k => delete shopCheckedState[k]);
   Object.assign(shopCheckedState, kept);
   extraItems.forEach(list => list.forEach(it => { it.done = false; }));
+  tickMemo = {}; // le spunte si sono spostate: i ricordi di prima non valgono più
 }
 // La spunta degli articoli extra sta sull'articolo stesso, non sulla sua posizione
 function migrateExtraChecks(){
@@ -2191,9 +2204,10 @@ function itemStatus(it){
 // at = giorno da cui il piano non l'ha ancora consumato · since = da quando c'è (per avvisare sui freschi)
 let homeCover = {};   // volta (ek) → 'all' se la copre tutta quello che c'è in casa, altrimenti la quantità coperta
 let homeOpen = readJSON('piano_spesa_casa') === true;
-const stockUndo = {};   // voce della lista → com'era prima della prima spunta (togliendo la spunta si torna lì)
-const partialBase = {}; // voce della lista → com'era prima dell'ultima spunta e quanto serviva, per "Preso solo in parte?"
-let partialOffer = null, partialExpanded = false; // la voce appena spuntata, sotto cui compare la tendina
+// tickMemo[voce] = { first, base, got }: first = com'era prima della prima spunta (togliendo la spunta si torna lì),
+// base = com'era prima dell'ultima spunta con quanto serviva, got = quanto si è segnato con "Preso solo in parte?"
+let partialOffer = null;   // la voce appena spuntata, sotto cui compare la tendina
+let partialOpenKey = null; // la tendina aperta
 
 function todayISO(){ return toISODate(now_date()); }
 function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
@@ -2294,25 +2308,25 @@ function toggleBought(shopKey, it){
   const st = itemStatus(it);
   if(st.done){
     if(!st.bought.length) return showToast('Ce l\'hai già in casa: per cambiarlo apri 🏠 In casa');
-    if(stockUndo[shopKey]) restoreItem(it, stockUndo[shopKey]);
+    if(tickMemo[shopKey]) restoreItem(it, tickMemo[shopKey].first);
     else it.entries.forEach(en => { delete shopCheckedState[en.ek]; });
-    delete stockUndo[shopKey];
-    delete partialBase[shopKey];
+    delete tickMemo[shopKey];
     if(partialOffer === shopKey) partialOffer = null;
     saveState();
     renderShopping();
     return;
   }
   const snap = snapshotItem(it);
-  if(!stockUndo[shopKey]) stockUndo[shopKey] = snap;
+  const memo = tickMemo[shopKey] || (tickMemo[shopKey] = { first: snap });
   const toBuy = remainingQtys(it);
   const unit = baseUnitOf(toBuy);
+  delete memo.got;
   if(unit){
     const need = toBuy.map(baseQty).filter(q => q && q.unit === unit).reduce((a, q) => a + q.n, 0);
-    partialBase[shopKey] = { ...snap, unit, toBuy: need };
+    memo.base = { ...snap, unit, toBuy: need };
     partialOffer = shopKey;
-    partialExpanded = false;
-  }
+    partialOpenKey = null;
+  } else { delete memo.base; partialOffer = null; }
   let used = 0;
   it.entries.forEach(en => {
     if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') return;
@@ -2330,7 +2344,7 @@ function toggleBought(shopKey, it){
 // "Preso solo in parte?": si torna a com'era prima della spunta e si segna quanto è stato preso davvero.
 // Le volte si coprono in ordine di data finché basta; quello che resta (o che è in più) va in casa.
 function applyPartial(shopKey, amount){
-  const it = shopIndex[shopKey], base = partialBase[shopKey];
+  const it = shopIndex[shopKey], memo = tickMemo[shopKey], base = memo && memo.base;
   if(!it || !base) return;
   restoreItem(it, base);
   computeHomeCover();
@@ -2348,7 +2362,9 @@ function applyPartial(shopKey, amount){
   const s = homeStock[it.key];
   if(s && s.amount != null && usedHome){ s.amount -= usedHome; if(s.amount <= 1e-9) delete homeStock[it.key]; }
   if(left > 1e-9) addStock(it.name, left, base.unit); // copre in parte la prossima volta, o avanza
-  partialOffer = null;
+  memo.got = amount; // la tendina resta, con quanto si è segnato, per correggerlo o annullarlo
+  partialOffer = shopKey;
+  partialOpenKey = null;
   saveState();
   renderShopping();
   const fmt = n => sumQty([`${numIt(n)} ${base.unit}`]);
@@ -2357,17 +2373,39 @@ function applyPartial(shopKey, amount){
     : diff < 0 ? `Segnato: mancano ${fmt(-diff)}, restano in lista`
     : `Segnato: ${fmt(diff)} in più vanno in 🏠 In casa`);
 }
+// "↩︎ Annulla": la voce torna com'era prima dell'ultima spunta
+function undoPartial(shopKey){
+  const it = shopIndex[shopKey], memo = tickMemo[shopKey];
+  if(!it || !memo || !memo.base) return;
+  restoreItem(it, memo.base);
+  if(memo.base.checked.length === memo.first.checked.length) delete tickMemo[shopKey]; // tornata all'inizio
+  else { delete memo.got; delete memo.base; }
+  partialOffer = null;
+  partialOpenKey = null;
+  saveState();
+  renderShopping();
+  showToast('Annullato: la voce è tornata com\'era');
+}
+// La tendina resta sotto la voce appena spuntata e, dopo aver segnato "in parte", finché la voce non è presa tutta
+function showsPartialBox(key, st){
+  const memo = tickMemo[key];
+  return !!(memo && memo.base) && (key === partialOffer || (memo.got != null && !st.done));
+}
 function partialBoxHTML(key){
-  const pb = partialBase[key];
+  const memo = tickMemo[key], pb = memo.base, got = memo.got;
+  const fmt = n => escapeHtml(sumQty([`${numIt(n)} ${pb.unit}`]));
   return `
-    <details class="partial-box" id="partialBox"${partialExpanded ? ' open' : ''}>
-      <summary>Preso solo in parte?</summary>
-      <div class="sheet-hint">Ne servivano ${escapeHtml(sumQty([`${numIt(pb.toBuy)} ${pb.unit}`]))}. Scrivi quanto ne hai preso: quello che manca resta in lista, quello in più va in 🏠 In casa.</div>
+    <details class="partial-box${got != null ? ' marked' : ''}" data-partial-box="${escapeHtml(key)}"${partialOpenKey === key ? ' open' : ''}>
+      <summary>${got != null ? `${got < pb.toBuy ? 'Preso in parte' : got > pb.toBuy ? 'Preso di più' : 'Preso'}: ${fmt(got)} su ${fmt(pb.toBuy)}` : 'Preso solo in parte?'}</summary>
+      <div class="sheet-hint">${got != null
+        ? `Hai segnato ${fmt(got)} su ${fmt(pb.toBuy)}. Puoi correggerlo o annullarlo finché la voce non è presa tutta.`
+        : `Ne servivano ${fmt(pb.toBuy)}. Scrivi quanto ne hai preso: quello che manca resta in lista, quello in più va in 🏠 In casa.`}</div>
       <div class="pack-row">
-        <input class="profile-input pack-size" id="partialAmt" type="number" inputmode="decimal" min="0" step="any" value="${Math.round(pb.toBuy * 10) / 10}">
-        <select class="profile-input pack-unit" id="partialUnit">${unitChoices(pb.unit).map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('')}</select>
+        <input class="profile-input pack-size" data-partial-amt type="number" inputmode="decimal" min="0" step="any" value="${Math.round((got != null ? got : pb.toBuy) * 10) / 10}">
+        <select class="profile-input pack-unit" data-partial-unit>${unitChoices(pb.unit).map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('')}</select>
         <div class="copy-btn partial-save" data-partial-save role="button">Salva</div>
       </div>
+      ${got != null ? '<div class="partial-undo" data-partial-undo role="button">↩︎ Annulla, torna com\'era</div>' : ''}
     </details>`;
 }
 
@@ -2540,12 +2578,11 @@ function renderShopping(){
   mainContent.innerHTML = html;
   attachExtraItemHandlers();
   document.getElementById('homeBox').addEventListener('toggle', (e) => { homeOpen = e.target.open; writeJSON('piano_spesa_casa', homeOpen); });
-  const partialBox = document.getElementById('partialBox');
-  if(partialBox) partialBox.addEventListener('toggle', (e) => {
-    if(!e.target.isConnected) return; // l'evento arriva dopo: la lista può essere già stata ridisegnata
-    partialExpanded = e.target.open;
-    if(partialExpanded) e.target.querySelector('#partialAmt').select();
-  });
+  mainContent.querySelectorAll('[data-partial-box]').forEach(box => box.addEventListener('toggle', () => {
+    if(!box.isConnected) return; // l'evento arriva dopo: la lista può essere già stata ridisegnata
+    if(box.open){ partialOpenKey = box.dataset.partialBox; box.querySelector('[data-partial-amt]').select(); }
+    else if(partialOpenKey === box.dataset.partialBox) partialOpenKey = null;
+  }));
 }
 
 function shopListHTML(list){
@@ -2582,7 +2619,7 @@ function shopListHTML(list){
           </div>
           <div class="info-btn" data-action="info">ⓘ</div>
         </div>`;
-      if(key === partialOffer && partialBase[key]) html += partialBoxHTML(key);
+      if(showsPartialBox(key, st)) html += partialBoxHTML(key);
     });
     html += `</div>`;
   });
@@ -2724,11 +2761,13 @@ mainContent.addEventListener('click', (e) => {
     if(text) shareText(text); else showToast('Hai già spuntato tutto 👍');
     return;
   }
-  if(e.target.closest('[data-partial-save]')){
-    let n = toNum(document.getElementById('partialAmt').value), unit = document.getElementById('partialUnit').value;
+  const partialBox = e.target.closest('[data-partial-box]');
+  if(partialBox && e.target.closest('[data-partial-undo]')){ undoPartial(partialBox.dataset.partialBox); return; }
+  if(partialBox && e.target.closest('[data-partial-save]')){
+    let n = toNum(partialBox.querySelector('[data-partial-amt]').value), unit = partialBox.querySelector('[data-partial-unit]').value;
     if(!(n >= 0)) return showToast('Scrivi quanto ne hai preso');
     if(BASE_UNITS[unit]){ n *= BASE_UNITS[unit][1]; unit = BASE_UNITS[unit][0]; }
-    applyPartial(partialOffer, n);
+    applyPartial(partialBox.dataset.partialBox, n);
     return;
   }
   if(e.target.closest('[data-home-add]')){ openHomeEditor(null); return; }
