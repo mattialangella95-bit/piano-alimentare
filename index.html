@@ -1085,6 +1085,15 @@
   .home-box .sheet-hint{ margin:0 0 4px; }
   .home-box .shop-empty{ padding:6px 4px; }
   .home-item{ cursor:pointer; }
+  .home-del{
+    flex:0 0 auto;
+    width:34px; height:34px;
+    border-radius:50%;
+    background:#f3e3dc;
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--fs-md);
+    cursor:pointer;
+  }
   .home-old{ color:var(--clay); }
   .home-line{
     display:flex; align-items:center; gap:6px;
@@ -2397,6 +2406,7 @@ function homeBoxHTML(){
           <div class="shop-name">${escapeHtml(s.name)} — <span class="shop-qty">${escapeHtml(stockText(s))}</span></div>
           ${old ? `<div class="shop-meta home-old">in casa da ${days} giorni: è ancora buono?</div>` : ''}
         </div>
+        <div class="home-del" data-home-del="${escapeHtml(key)}" role="button" aria-label="Togli da In casa">🗑</div>
         <div class="ing-more" role="button" aria-label="Modifica">⋯</div>
       </div>`;
   }).join('');
@@ -2486,14 +2496,17 @@ function openHomeEditor(key, presetKey){
     hideInfoSheet();
     renderShopping();
   });
-  if(s) document.getElementById('homeDel').addEventListener('click', () => {
-    delete homeStock[key];
-    partialOffer = null;
-    saveState();
-    hideInfoSheet();
-    renderShopping();
-    showToast(`Finito: ${s.name}`, 'Annulla', () => { homeStock[key] = s; saveState(); if(currentTab === 'spesa') renderShopping(); });
-  });
+  if(s) document.getElementById('homeDel').addEventListener('click', () => { hideInfoSheet(); removeHome(key); });
+}
+// 🗑 e "Finito": toglie un prodotto da In casa, con "Annulla" per qualche secondo
+function removeHome(key){
+  const s = homeStock[key];
+  if(!s) return;
+  delete homeStock[key];
+  partialOffer = null;
+  saveState();
+  renderShopping();
+  showToast(`Tolto da casa: ${s.name}`, 'Annulla', () => { homeStock[key] = s; saveState(); if(currentTab === 'spesa') renderShopping(); });
 }
 
 // Spunte della versione di prima ("settimana::prodotto") → spunte sulle singole volte di quella settimana
@@ -2749,6 +2762,8 @@ mainContent.addEventListener('click', (e) => {
     return;
   }
   if(e.target.closest('[data-home-add]')){ openHomeEditor(null); return; }
+  const homeDel = e.target.closest('[data-home-del]');
+  if(homeDel){ removeHome(homeDel.dataset.homeDel); return; }
   const homeRow = e.target.closest('[data-home-key]');
   if(homeRow){ openHomeEditor(homeRow.dataset.homeKey); return; }
   const row = e.target.closest('.shop-item[data-check]');
