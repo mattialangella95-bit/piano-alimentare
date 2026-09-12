@@ -74,7 +74,7 @@
   .brand .sub{
     font-family: -apple-system, system-ui, sans-serif;
     font-size:var(--fs-sm);
-    color: #c9d6cb;
+    color: rgba(255,255,255,0.72);
     margin-top:3px;
   }
   .week-pill{
@@ -96,7 +96,7 @@
     flex:1;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
-    color: #d7ded4;
+    color: rgba(255,255,255,0.82);
     font-family: -apple-system, system-ui, sans-serif;
     font-size:var(--fs-md);
     padding: 7px 6px;
@@ -125,7 +125,7 @@
     border-color: rgba(255,255,255,0.1);
   }
   .week-btn.completed .wk-label{
-    color:#8f9a90;
+    color:rgba(255,255,255,0.45);
     text-decoration: line-through;
   }
   .week-btn.completed .wk-check{
@@ -140,7 +140,7 @@
     font-weight:700;
   }
   .week-btn.active .wk-check{
-    border-color: rgba(29,47,38,0.4);
+    border-color: rgba(0,0,0,0.3);
   }
   .week-btn.active.completed .wk-check{
     background: var(--forest-deep);
@@ -255,31 +255,6 @@
     background:var(--clay);
     display:inline-block;
   }
-  .meal-text{
-    font-size:var(--fs-body);
-    line-height:1.45;
-    color:var(--ink);
-    margin:0;
-  }
-  .corrected-flag{
-    margin-top:8px;
-    font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-sm);
-    color:#8a5a1e;
-    background:#fbeed9;
-    border:1px solid #eccd93;
-    padding:5px 8px;
-    border-radius:8px;
-    line-height:1.35;
-  }
-
-  .divider-note{
-    text-align:center;
-    font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-sm);
-    color:var(--muted);
-    margin: 18px 0 4px;
-  }
 
   /* NAV ARROWS FOOTER */
   .nav-footer{
@@ -319,9 +294,6 @@
     cursor:pointer;
   }
 
-  .guidelines-btn{
-    position:absolute; top:22px; right:20px;
-  }
 
   /* TABS */
   .tabs{
@@ -339,7 +311,7 @@
     font-family:-apple-system, system-ui, sans-serif;
     font-size:var(--fs-md);
     font-weight:600;
-    color:#cfd9d0;
+    color:rgba(255,255,255,0.8);
     background:rgba(255,255,255,0.06);
     cursor:pointer;
   }
@@ -365,7 +337,7 @@
   }
   .shop-item{
     display:flex;
-    align-items:flex-start;
+    align-items:center;
     gap:10px;
     padding:10px 4px;
     border-bottom:1px solid var(--line);
@@ -375,7 +347,7 @@
     flex:0 0 auto;
     width:22px;height:22px;
     border-radius:6px;
-    border:1.5px solid #b9c4ac;
+    border:1.5px solid var(--tint-line);
     background:var(--paper);
     display:flex; align-items:center; justify-content:center;
     font-size:var(--fs-md);
@@ -408,26 +380,6 @@
     font-family:-apple-system, system-ui, sans-serif;
     font-weight:700;
     color:var(--clay);
-  }
-  .fixed-banner{
-    font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-sm);
-    color:var(--forest);
-    background:var(--tint);
-    border:1px solid var(--tint-line);
-    padding:8px 10px;
-    border-radius:8px;
-    margin-bottom:14px;
-    line-height:1.4;
-  }
-  .reset-link{
-    text-align:center;
-    font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-sm);
-    color:var(--muted);
-    text-decoration:underline;
-    margin: 6px 0 4px;
-    cursor:pointer;
   }
 
   /* EDITABLE INGREDIENT LIST */
@@ -470,16 +422,6 @@
     background:#fbf6ea;
     box-shadow: 0 0 0 1.5px var(--gold);
   }
-  .ing-del{
-    flex:0 0 auto;
-    width:30px;height:30px;
-    border-radius:50%;
-    background:#efe6da;
-    color:#9a7b52;
-    display:flex;align-items:center;justify-content:center;
-    font-size:var(--fs-sm);
-    cursor:pointer;
-  }
   .ing-add{
     margin-top:8px;
     font-family:-apple-system, system-ui, sans-serif;
@@ -494,7 +436,6 @@
   .ing-nobuy .ing-name{ color:#9a9d92; font-style:italic; }
 
   /* INFO BUTTON + POPOVER */
-  .shop-item{ align-items:center; }
   .info-btn{
     flex:0 0 auto;
     width:22px;height:22px;
@@ -575,7 +516,7 @@
     margin:10px 20px 0;
     font-family:-apple-system, system-ui, sans-serif;
     font-size:var(--fs-sm);
-    color:#3d4a37;
+    color:var(--forest-deep);
   }
   .clip-banner.active{ display:flex; }
   .clip-banner .clip-clear{
@@ -605,16 +546,6 @@
     background:var(--clay);
     border:1px solid var(--clay);
   }
-  .ing-copy{
-    flex:0 0 auto;
-    width:22px;height:22px;
-    border-radius:50%;
-    background:var(--tint);
-    color:var(--forest);
-    display:flex;align-items:center;justify-content:center;
-    font-size:var(--fs-sm);
-    cursor:pointer;
-  }
   .meal-header-row{
     display:flex;
     align-items:center;
@@ -625,14 +556,13 @@
   .meal-header-row .meal-label{ margin:0; flex:1; }
   .meal-actions{ display:flex; gap:6px; flex:0 0 auto; }
   .day-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-  .week-actions{ display:flex; gap:6px; margin-top:10px; }
 
   /* ACCOUNT E SALVATAGGIO */
   .brand-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
   .sync-status{
     font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-xs);
-    color:#c9d6cb;
+    font-size:var(--fs-sm);
+    color:rgba(255,255,255,0.72);
     white-space:nowrap;
   }
   .sync-status.offline, .sync-status.error{ color:#f0c9a0; }
@@ -651,7 +581,7 @@
   .nobuy-tag{
     flex:0 0 auto;
     font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-xs); font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
+    font-size:var(--fs-sm); font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
     color:var(--muted);
     border:1px solid var(--line); border-radius:6px;
     padding:2px 5px;
@@ -788,6 +718,7 @@
   }
   .edit-label .profile-input{ margin-top:5px; font-size:var(--fs-md); }
   .edit-save{ margin:16px 0 6px; }
+  .sheet-close.neutral{ background:#8a8266; }
   .sheet-cancel{
     text-align:center;
     font-family:-apple-system, system-ui, sans-serif;
@@ -869,7 +800,7 @@
   .fb-top{
     display:flex; justify-content:space-between; gap:8px;
     font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-xs); color:var(--muted);
+    font-size:var(--fs-sm); color:var(--muted);
   }
   .fb-state{ font-weight:700; color:var(--clay); white-space:nowrap; }
   .fb-right{ display:flex; align-items:center; gap:4px; flex:0 0 auto; }
@@ -890,7 +821,7 @@
     margin-top:4px;
     white-space:pre-wrap; overflow-wrap:anywhere;
   }
-  .fb-where{ font-family:-apple-system, system-ui, sans-serif; font-size:var(--fs-xs); color:var(--muted); margin-top:4px; }
+  .fb-where{ font-family:-apple-system, system-ui, sans-serif; font-size:var(--fs-sm); color:var(--muted); margin-top:4px; }
   .fb-actions{ display:flex; gap:6px; margin-top:8px; }
   .fb-del{ color:var(--clay); }
   .fb-count{ margin-left:6px; color:var(--forest); }
@@ -905,7 +836,7 @@
     color:var(--ink);
     cursor:pointer;
   }
-  .toggle-row small{ display:block; font-size:var(--fs-xs); font-weight:400; color:var(--muted); margin-top:2px; }
+  .toggle-row small{ display:block; font-size:var(--fs-sm); font-weight:400; color:var(--muted); margin-top:2px; }
   .switch{
     flex:0 0 auto;
     position:relative;
@@ -1038,16 +969,6 @@
     cursor:pointer;
   }
   .profile-link.danger{ color:var(--clay); border-bottom:none; }
-  .profile-logout{
-    margin:14px 0 12px;
-    text-align:center;
-    font-family:-apple-system, system-ui, sans-serif;
-    font-size:var(--fs-md); font-weight:700;
-    color:var(--clay);
-    border:1px solid var(--clay); border-radius:10px;
-    padding:10px;
-    cursor:pointer;
-  }
   .auth-screen{
     position:fixed; inset:0; z-index:200;
     background: linear-gradient(160deg, var(--forest) 0%, var(--forest-deep) 100%);
@@ -1084,7 +1005,7 @@
     background:var(--paper);
     color:var(--ink);
   }
-  .auth-card input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 2px rgba(199,154,61,0.25); }
+  .auth-card input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 2px color-mix(in srgb, var(--gold) 25%, transparent); }
   .auth-btn{
     display:block; width:100%;
     margin-top:10px;
@@ -1468,7 +1389,7 @@ async function syncWithCloud(){
   const legacy = readJSON(LEGACY_STORAGE_KEY);
   if(legacy && Array.isArray(legacy.planData)){
     showConfirm('Su questo telefono c\'è un piano salvato con la versione precedente dell\'app. Vuoi caricarlo nel tuo account?', () => {
-      applyState({ appTitle, appSubtitle, ...legacy });
+      applyState({ appTitle, appSubtitle, profile: { ...defaultProfile(), newsSeen: profile.newsSeen }, ...legacy });
       saveState();
       refreshUI();
       try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(e){}
@@ -1476,6 +1397,11 @@ async function syncWithCloud(){
   }
 }
 
+// Un piano valido: 4 settimane × 7 giorni, e ogni pasto è un elenco (altrimenti l'app si bloccherebbe)
+function validPlan(pd){
+  return Array.isArray(pd) && pd.length === 4 && pd.every(w => w && Array.isArray(w.days) && w.days.length === 7
+    && w.days.every(d => d && d.meals && MEAL_TYPES.every(m => Array.isArray(d.meals[m]))));
+}
 // Mette nell'app i dati salvati (null = piano vuoto). Torna true se ha azzerato i progressi per un nuovo giro.
 function applyState(saved){
   planData = emptyPlan();
@@ -1490,7 +1416,7 @@ function applyState(saved){
   const prevStart = profile.startDate;
   profile = defaultProfile();
   if(!saved){ applyProfile(prevStart); autoSavePending = false; return false; }
-  if(Array.isArray(saved.planData) && saved.planData.length === planData.length){
+  if(validPlan(saved.planData)){
     planData = saved.planData;
   }
   if(Array.isArray(saved.weekCompleted)){
@@ -1507,7 +1433,9 @@ function applyState(saved){
   if(saved.profile && typeof saved.profile === 'object') profile = { ...defaultProfile(), ...saved.profile };
   if(saved.products && typeof saved.products === 'object') products = saved.products;
   if(saved.homeStock && typeof saved.homeStock === 'object') homeStock = saved.homeStock;
-  if(saved.tickMemo && typeof saved.tickMemo === 'object') tickMemo = saved.tickMemo;
+  if(saved.tickMemo && typeof saved.tickMemo === 'object'){
+    tickMemo = Object.fromEntries(Object.entries(saved.tickMemo).filter(([k]) => /^w\d+-/.test(k))); // i ricordi senza settimana erano sbagliati
+  }
   applyProfile(prevStart);
   migrateExtraChecks();
   let needsSave = false;
@@ -1677,8 +1605,8 @@ function initAuth(){
     if(document.visibilityState === 'hidden'){ if(cloudTimer) pushToCloud(); return; }
     refreshToday();
     const local = readJSON(localKey());
-    if(local && local.dirty) pushToCloud(); else syncWithCloud();
-    checkNotices();
+    // Prima si sincronizza, poi novità e avvisi (così non si salva sopra i dati arrivati da un altro telefono)
+    (local && local.dirty ? pushToCloud() : syncWithCloud()).then(() => { maybeShowNews(); checkNotices(); });
   });
   window.addEventListener('online', () => { if(currentUser){ syncWithCloud(); checkNotices(); } });
   window.addEventListener('offline', () => { if(currentUser) setSync('offline'); });
@@ -1835,7 +1763,7 @@ function escapeHtml(s){
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function mealCardHTML(weekIdx, dayIdx, mealType, correctedNote){
+function mealCardHTML(weekIdx, dayIdx, mealType){
   const items = planData[weekIdx].days[dayIdx].meals[mealType];
   const fixed = FIXED_MEALS.includes(mealType);
   const rows = items.map((it, idx) => ingredientRowHTML(weekIdx, dayIdx, mealType, idx, it)).join('');
@@ -1853,7 +1781,6 @@ function mealCardHTML(weekIdx, dayIdx, mealType, correctedNote){
       ${rows}
       <div class="ing-add" data-add-meal="${mealType}">+ Aggiungi ingrediente</div>
       ${hasIngClip ? `<div class="paste-btn" data-action="pasteIng" data-meal="${mealType}" style="margin-top:6px;display:inline-block;">Incolla ingrediente</div>` : ''}
-      ${correctedNote ? `<div class="corrected-flag">✎ Corretta rispetto alla bozza precedente</div>` : ''}
     </div>`;
 }
 
@@ -1862,7 +1789,7 @@ function renderMain(){
   const d = week.days[currentDay];
   const date = dateForDay(currentWeek, currentDay);
   const isToday = todayIdx && todayIdx.week === currentWeek && todayIdx.dayIdx === currentDay;
-  const cards = MEAL_TYPES.map(mt => mealCardHTML(currentWeek, currentDay, mt, mt==='colazione' && d.corrected)).join('');
+  const cards = MEAL_TYPES.map(mt => mealCardHTML(currentWeek, currentDay, mt)).join('');
   const hasDayClip = clipboard && clipboard.type === 'day';
   const hasWeekClip = clipboard && clipboard.type === 'week';
   const weekDone = weekCompleted[currentWeek];
@@ -1883,7 +1810,6 @@ function renderMain(){
     ${cards}
     <div class="week-done${weekDone ? ' on' : ''}" id="weekDoneBtn">${weekDone ? `✓ ${escapeHtml(week.name)} completata · tocca per annullare` : `Segna ${escapeHtml(week.name)} come completata`}</div>
     ${profile.notes ? `<div class="plan-notes">📝 ${escapeHtml(profile.notes)}</div>` : ''}
-    <div class="divider-note">Tocca ⋯ per modificare, copiare, togliere dalla spesa o eliminare</div>
   `;
 }
 
@@ -2203,14 +2129,14 @@ function shoppingLists(){
   const w = currentWeek;
   const range = (from, to) => rangeLabel(dateForDay(w, from), dateForDay(w, to));
   if(shopMode === 'fresca' && freshTrips === 1){
-    return [{ id: 'f1', title: 'Spesa fresca della settimana', sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), ['fresco', 'medio']), shareTitle: `Spesa fresca (${range(0, 6)})` }];
+    return [{ id: `w${w}-f1`, title: 'Spesa fresca della settimana', sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), ['fresco', 'medio']), shareTitle: `Spesa fresca (${range(0, 6)})` }];
   }
   if(shopMode === 'fresca'){
     // Giro 1: freschi di lun–mer + quelli che durano una settimana; giro 2: freschi di gio–dom
     const g1 = collectItems(daysOf(w, 0, 2), ['fresco']).concat(collectItems(daysOf(w, 0, 6), ['medio'])).sort(byName);
     return [
-      { id: 'g1', title: 'Prima spesa', sub: range(0, 2), items: g1, shareTitle: `Prima spesa fresca (${range(0, 2)})` },
-      { id: 'g2', title: 'Seconda spesa', sub: range(3, 6), items: collectItems(daysOf(w, 3, 6), ['fresco']), shareTitle: `Seconda spesa fresca (${range(3, 6)})` },
+      { id: `w${w}-g1`, title: 'Prima spesa', sub: range(0, 2), items: g1, shareTitle: `Prima spesa fresca (${range(0, 2)})` },
+      { id: `w${w}-g2`, title: 'Seconda spesa', sub: range(3, 6), items: collectItems(daysOf(w, 3, 6), ['fresco']), shareTitle: `Seconda spesa fresca (${range(3, 6)})` },
     ];
   }
   if(shopMode === 'dispensa'){
@@ -2218,13 +2144,20 @@ function shoppingLists(){
     for(let i = 0; i < pantryWeeks; i++) slots.push(...daysOf(w + i, 0, 6));
     const sub = rangeLabel(dateForDay(w, 0), dateForDay(w + pantryWeeks - 1, 6));
     const title = `Dispensa per ${pantryWeeks} ${pantryWeeks === 1 ? 'settimana' : 'settimane'}`;
-    return [{ id: 'disp' + pantryWeeks, title, sub, items: collectItems(slots, ['lunga']), shareTitle: `${title} (${sub})` }];
+    return [{ id: `w${w}-disp${pantryWeeks}`, title, sub, items: collectItems(slots, ['lunga']), shareTitle: `${title} (${sub})` }];
   }
-  return [{ id: 'week', title: planData[w].name, sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), null), shareTitle: `Spesa ${planData[w].name} (${range(0, 6)})`, withExtras: true }];
+  return [{ id: `w${w}-week`, title: planData[w].name, sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), null), shareTitle: `Spesa ${planData[w].name} (${range(0, 6)})`, withExtras: true }];
 }
 // Una voce è a posto quando ogni sua "volta" è comprata o coperta da quello che c'è in casa; se solo alcune, è presa in parte
 // Quanto è stato preso di una volta: 'all' (tutto), una quantità in unità base ("preso in parte") o 0
-function boughtOf(e){ const v = shopCheckedState[e.ek]; return v === true ? 'all' : typeof v === 'number' && v > 0 ? v : 0; }
+function boughtOf(e){
+  const v = shopCheckedState[e.ek];
+  if(v === true) return 'all';
+  if(typeof v !== 'number' || !(v > 0)) return 0;
+  const q = baseQty(e.qty); // la quantità nel piano può essere cambiata dopo la spunta (es. diventata "q.b.")
+  if(!q) return 0;
+  return v >= q.n - 1e-9 ? 'all' : v;
+}
 function remainingQtys(it){
   const out = [];
   it.entries.forEach(e => {
@@ -2265,6 +2198,7 @@ let homeOpen = readJSON('piano_spesa_casa') === true;
 // base = com'era prima dell'ultima spunta con quanto serviva, got = quanto si è segnato con "Preso solo in parte?"
 let partialOffer = null;   // la voce appena spuntata, sotto cui compare la tendina
 let partialOpenKey = null; // la tendina aperta
+let lastShopWeek = null;   // cambiando settimana la tendina della voce appena spuntata non vale più
 
 function todayISO(){ return toISODate(now_date()); }
 function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
@@ -2423,8 +2357,8 @@ function partialBoxHTML(key){
     <details class="partial-box${got != null ? ' marked' : ''}" data-partial-box="${escapeHtml(key)}"${partialOpenKey === key ? ' open' : ''}>
       <summary>${got != null ? `${got < pb.toBuy ? 'Preso in parte' : got > pb.toBuy ? 'Preso di più' : 'Preso'}: ${fmt(got)} su ${fmt(pb.toBuy)}` : 'Preso solo in parte?'}</summary>
       <div class="sheet-hint">${got != null
-        ? `Hai segnato ${fmt(got)} su ${fmt(pb.toBuy)}. Puoi correggerlo o annullarlo finché la voce non è presa tutta.`
-        : `Ne servivano ${fmt(pb.toBuy)}. Scrivi quanto ne hai preso: quello che manca resta in lista, se è di più potrai metterlo in 🏠 In casa.`}</div>
+        ? 'Puoi correggerlo o annullarlo.'
+        : `Ne servivano ${fmt(pb.toBuy)}. Quello che manca resta in lista.`}</div>
       <div class="pack-row">
         <input class="profile-input pack-size" data-partial-amt type="number" inputmode="decimal" min="0" step="any" value="${Math.round((got != null ? got : pb.toBuy) * 10) / 10}">
         <select class="profile-input pack-unit" data-partial-unit>${unitChoices(pb.unit).map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('')}</select>
@@ -2454,7 +2388,7 @@ function homeBoxHTML(){
   return `
     <details class="home-box" id="homeBox"${homeOpen ? ' open' : ''}>
       <summary>🏠 In casa${items.length ? ` · ${items.length} ${items.length === 1 ? 'prodotto' : 'prodotti'}` : ''}</summary>
-      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa che stai guardando. L'app non sa quando lo usi: quando lo finisci o ne usi un po', aggiornalo tu (tocca la riga).</div>
+      <div class="sheet-hint">Viene tolto dalla spesa. Quando lo finisci, toglilo col 🗑.</div>
       ${rows || '<div class="shop-empty">Niente per ora.</div>'}
       <div class="ing-add" data-home-add>+ Aggiungi quello che hai in casa</div>
     </details>`;
@@ -2472,7 +2406,7 @@ function openHomeEditor(key, presetKey){
   if(!s && !all.length) return showAlert('Prima metti qualche ingrediente nel piano: in casa si segnano i prodotti del piano.');
   infoSheet.innerHTML = `
     <h4>${s ? escapeHtml(s.name) : 'Aggiungi in casa'}</h4>
-    <div class="sheet-sub">${s ? 'Quanto ne hai adesso?' : 'Scegli un prodotto del piano e quanto ne hai.'}</div>
+    ${s ? '' : '<div class="sheet-sub">Scegli un prodotto del piano e quanto ne hai.</div>'}
     ${s ? '' : `<label class="edit-label">Prodotto<select class="profile-input" id="homeProd">
       <option value="" disabled${presetKey ? '' : ' selected'}>Scegli…</option>
       ${all.map(it => `<option value="${escapeHtml(it.key)}"${it.key === presetKey ? ' selected' : ''}>${escapeHtml(it.name)}</option>`).join('')}
@@ -2571,9 +2505,9 @@ function renderShopping(){
   const desc = {
     settimana: 'Tutto quello che serve per la settimana, diviso per reparto.',
     fresca: freshTrips === 1
-      ? 'Solo i prodotti freschi, per tutta la settimana in un\'unica spesa.'
-      : 'Solo i prodotti freschi, divisi in due spese per non comprarli troppo presto. Nella prima ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
-    dispensa: 'Prodotti a lunga conservazione (pasta, riso, olio, legumi…): si comprano una volta sola per più settimane.'
+      ? 'Solo i freschi, per tutta la settimana in un\'unica spesa.'
+      : 'Solo i freschi, in due spese. Nella prima anche yogurt, uova e frutta, che durano una settimana.',
+    dispensa: 'A lunga conservazione (pasta, riso, olio…): una spesa per più settimane.'
   }[shopMode];
   let html = homeBoxHTML() + `<div class="shop-modes">${[['fresca', 'Fresca'], ['settimana', 'Settimana'], ['dispensa', 'Dispensa']]
     .map(([k, l]) => `<div class="shop-mode${shopMode === k ? ' active' : ''}" data-shop-mode="${k}">${l}</div>`).join('')}</div>`;
@@ -2611,7 +2545,7 @@ function renderShopping(){
   document.getElementById('homeBox').addEventListener('toggle', (e) => { homeOpen = e.target.open; writeJSON('piano_spesa_casa', homeOpen); });
   mainContent.querySelectorAll('[data-partial-box]').forEach(box => box.addEventListener('toggle', () => {
     if(!box.isConnected) return; // l'evento arriva dopo: la lista può essere già stata ridisegnata
-    if(box.open){ partialOpenKey = box.dataset.partialBox; box.querySelector('[data-partial-amt]').select(); }
+    if(box.open) partialOpenKey = box.dataset.partialBox;
     else if(partialOpenKey === box.dataset.partialBox) partialOpenKey = null;
   }));
 }
@@ -2691,13 +2625,19 @@ async function shareText(text){
 }
 
 // Dettaglio di una voce: dove compare + reparto e conservazione modificabili
+// La frase sotto "Confezione" nella ⓘ: quante comprarne, oppure cosa scrivere
+function packHintHTML(item){
+  const allQ = item.entries.map(e => e.qty), key = item.name.toLowerCase();
+  const own = !!products[key] && 'pack' in products[key];
+  const est = packText(item.name, allQ);
+  return (est ? `Servono ${escapeHtml(est)} per ${escapeHtml(sumQty(allQ))}.` : 'Scrivi quanto contiene una confezione.')
+    + (packOf(item.name) && !own ? ' È una stima: controllala.' : '');
+}
 function showShopInfo(item){
   const info = productInfo(item.name);
   const st = itemStatus(item);
   const allQ = item.entries.map(e => e.qty);
   const pack = packOf(item.name);
-  const packOwn = !!products[item.name.toLowerCase()] && 'pack' in products[item.name.toLowerCase()];
-  const packEst = packText(item.name, allQ);
   const packUnit = pack ? pack.unit : (Object.keys(qtyTotals(allQ).totals)[0] || 'pz');
   const hs = homeStock[item.key];
   const rows = item.entries.map(en => {
@@ -2722,18 +2662,15 @@ function showShopInfo(item){
     <h5>Si conserva</h5>
     <div class="chip-row">${DURATE.map(([k, label]) => `<div class="chip${info.durata === k ? ' active' : ''}" data-set-durata="${k}">${label}</div>`).join('')}</div>
     <div class="sheet-btn${info.reparto === 'surgelati' ? ' on' : ''}" data-frozen role="button">${info.reparto === 'surgelati' ? '❄️ Lo compro surgelato ✓ · tocca per tornare al fresco' : '❄️ Lo compro surgelato'}</div>
-    <div class="sheet-hint">${info.reparto === 'surgelati' ? 'Sta nella Dispensa, reparto Surgelati: si compra una volta sola.' : 'Se lo compri surgelato va nella Dispensa e si compra una volta sola.'}</div>
     <h5>Confezione</h5>
     <div class="pack-row">
       <span>1 confezione contiene</span>
       <input class="profile-input pack-size" id="packSize" type="number" inputmode="decimal" min="0" step="any" value="${pack ? pack.size : ''}" placeholder="?">
       <select class="profile-input pack-unit" id="packUnit">${['pz', 'g', 'ml', 'bustine'].map(u => `<option value="${u}"${packUnit === u ? ' selected' : ''}>${u}</option>`).join('')}</select>
     </div>
-    <div class="sheet-hint">${packEst ? `Servono ${escapeHtml(packEst)} per ${escapeHtml(sumQty(allQ))}.` : 'Scrivi quanto contiene una confezione per sapere quante comprarne (lascia vuoto se non si compra a confezioni).'}${pack && !packOwn ? ' È una stima: controllala sulla confezione.' : ''}</div>
-    <div class="sheet-hint">Reparto e conservazione valgono ogni volta che compare "${escapeHtml(item.name)}": decidono in quale lista va.</div>
+    <div class="sheet-hint" id="packHint">${packHintHTML(item)}</div>
     <details class="days-toggle" id="shopDays"${shopInfoDaysOpen ? ' open' : ''}>
       <summary>📅 Quando serve · ${item.entries.length === 1 ? '1 volta' : item.entries.length + ' volte'}</summary>
-      <div class="sheet-hint">Spunta le volte che hai già comprato: vale in tutte le liste.</div>
       ${rows}
     </details>
     <div class="sheet-close" id="sheetCloseBtn">Chiudi</div>`;
@@ -2745,6 +2682,9 @@ function showShopInfo(item){
   infoSheet.querySelectorAll('[data-ek]').forEach(row => row.addEventListener('click', () => {
     const ek = row.getAttribute('data-ek');
     if(shopCheckedState[ek] === true) delete shopCheckedState[ek]; else shopCheckedState[ek] = true; // presa in parte → presa tutta
+    // Spuntata a mano: "Annulla" e "Preso in parte" di prima non devono più disfarla
+    Object.keys(tickMemo).forEach(k => { if(k.endsWith('|' + item.key)) delete tickMemo[k]; });
+    if(partialOffer && partialOffer.endsWith('|' + item.key)) partialOffer = null;
     refresh();
   }));
   infoSheet.querySelector('[data-frozen]').addEventListener('click', () => {
@@ -2757,14 +2697,19 @@ function showShopInfo(item){
     }
     refresh();
   });
+  // La confezione si salva senza ridisegnare la scheda: così il tocco su "Chiudi" subito dopo non va perso
+  const packSizeIn = infoSheet.querySelector('#packSize'), packUnitSel = infoSheet.querySelector('#packUnit');
   const savePack = () => {
     const key = item.name.toLowerCase();
-    const size = toNum(infoSheet.querySelector('#packSize').value);
-    products[key] = { ...(products[key] || {}), pack: size > 0 ? { size, unit: infoSheet.querySelector('#packUnit').value } : null };
-    refresh();
+    const size = toNum(packSizeIn.value);
+    products[key] = { ...(products[key] || {}), pack: size > 0 ? { size, unit: packUnitSel.value } : null };
+    saveState();
+    renderShopping();
+    const hint = document.getElementById('packHint');
+    if(hint) hint.innerHTML = packHintHTML(item);
   };
-  infoSheet.querySelector('#packSize').addEventListener('change', savePack);
-  infoSheet.querySelector('#packUnit').addEventListener('change', savePack);
+  packSizeIn.addEventListener('change', savePack);
+  packUnitSel.addEventListener('change', savePack);
   infoSheet.querySelectorAll('[data-set-reparto], [data-set-durata]').forEach(chip => chip.addEventListener('click', () => {
     const key = item.name.toLowerCase();
     const change = chip.dataset.setReparto ? { reparto: chip.dataset.setReparto } : { durata: chip.dataset.setDurata };
@@ -2791,6 +2736,12 @@ mainContent.addEventListener('click', (e) => {
     const list = shoppingLists().find(l => l.id === share.dataset.share);
     const text = list && listText(list);
     if(text) shareText(text); else showToast('Hai già spuntato tutto 👍');
+    return;
+  }
+  const partialSummary = e.target.closest('.partial-box > summary');
+  if(partialSummary){ // aprendo la tendina il numero è già selezionato, pronto da cambiare (solo quando la apre l'utente)
+    const b = partialSummary.parentElement;
+    if(!b.open) setTimeout(() => { const inp = b.querySelector('[data-partial-amt]'); if(inp && b.open && b.isConnected) inp.select(); }, 0);
     return;
   }
   const partialBox = e.target.closest('[data-partial-box]');
@@ -2859,7 +2810,7 @@ function openIngredientEditor(ref){
   const item = isNew ? { name: '', qty: '', buy: true } : list[ref.idx];
   if(!item) return;
   const actions = isNew ? '' : `
-    <div class="sheet-action" data-menu="copy">⧉ Copia (per incollarlo in un altro pasto)</div>
+    <div class="sheet-action" data-menu="copy">⧉ Copia</div>
     <div class="sheet-action" data-menu="buy">${item.buy === false ? '🛒 Rimettilo nella lista spesa' : '🚫 Non metterlo nella spesa (ce l\'ho sempre)'}</div>
     <div class="sheet-action danger" data-menu="delete">🗑 Elimina</div>`;
   infoSheet.innerHTML = editSheetHTML(isNew ? 'Nuovo ingrediente' : 'Modifica ingrediente',
@@ -2961,7 +2912,7 @@ function showConfirm(message, onYes, yesLabel = 'Sì, sostituisci'){
     <div style="padding:2px 0 16px; font-size:var(--fs-body); line-height:1.4; color:var(--ink);">${escapeHtml(message)}</div>
     <div style="display:flex; gap:10px;">
       <div class="sheet-close" id="confirmYesBtn" style="flex:1;">${escapeHtml(yesLabel)}</div>
-      <div class="sheet-close" id="confirmNoBtn" style="flex:1; background:#8a8266;">Annulla</div>
+      <div class="sheet-close neutral" id="confirmNoBtn" style="flex:1;">Annulla</div>
     </div>
   `;
   infoOverlay.classList.remove('hidden');
@@ -2974,6 +2925,7 @@ function showConfirm(message, onYes, yesLabel = 'Sì, sostituisci'){
 
 // ---------- MAIN RENDER ----------
 function renderAll(){
+  if(currentWeek !== lastShopWeek){ partialOffer = null; partialOpenKey = null; lastShopWeek = currentWeek; }
   const date = dateForDay(currentWeek, 0);
   const dateEnd = dateForDay(currentWeek, 6);
   weekPill.textContent = planData[currentWeek].name + (weekCompleted[currentWeek] ? ' ✓' : '');
@@ -3046,6 +2998,8 @@ function applyTheme(key){
   r.setProperty('--tint', t.tint || mixWithWhite(t.forest, 0.13));
   r.setProperty('--tint-soft', t.tintSoft || mixWithWhite(t.forest, 0.07));
   r.setProperty('--tint-line', t.tintLine || mixWithWhite(t.forest, 0.3));
+  const meta = document.querySelector('meta[name="theme-color"]'); // la barra del telefono segue il colore scelto
+  if(meta) meta.setAttribute('content', t.forest);
 }
 // Versione chiara di un colore: amount 0 = bianco, 1 = colore pieno
 function mixWithWhite(hex, amount){
@@ -3114,7 +3068,6 @@ function renderProfile(){
     <div class="profile-link" id="exportDataLink">⬇️ Esporta backup</div>
     <div class="profile-link" id="importDataLink">⬆️ Importa backup</div>
     <div class="profile-link danger" id="resetPlanLink">Svuota il piano (cancella tutti i pasti)</div>
-    <div class="profile-logout" id="logoutLink" data-logout>Esci dall'account</div>
     <div class="sheet-close" id="profileCloseBtn">Chiudi</div>`;
   if(isAdmin) loadAdminReports();
 }
@@ -3166,12 +3119,15 @@ function importBackupFile(file){
   reader.onload = () => {
     try{
       const saved = JSON.parse(reader.result);
-      if(saved && Array.isArray(saved.planData) && saved.planData.length === planData.length){
+      if(saved && validPlan(saved.planData)){
         showConfirm('Importare questo backup? I dati attualmente presenti nell\'app verranno sostituiti.', () => {
+          const keep = { newsSeen: profile.newsSeen, fbSeen: profile.fbSeen, fbDoneSeen: profile.fbDoneSeen }; // novità e avvisi già visti restano visti
           applyState({ appTitle, appSubtitle, profile, ...saved });
+          Object.entries(keep).forEach(([k, v]) => { if(v !== undefined) profile[k] = v; });
+          partialOffer = null;
           saveState();
           refreshUI();
-        });
+        }, 'Sì, importa');
       } else {
         showAlert('Il file selezionato non sembra un backup valido di questa app.');
       }
@@ -3183,7 +3139,9 @@ function importBackupFile(file){
 }
 function confirmEmptyPlan(){
   showConfirm('Vuoi davvero cancellare tutti i pasti di tutte le settimane? Questa azione non si può annullare.', () => {
-    applyState({ appTitle, appSubtitle, profile, cycle: currentCycle });
+    // Solo i pasti (e le spunte, che si riferiscono ai pasti): In casa, reparti, confezioni e articoli extra restano
+    applyState({ ...currentState(), planData: emptyPlan(), shopCheckedState: {}, tickMemo: {}, weekCompleted: [false, false, false, false] });
+    partialOffer = null;
     saveState();
     refreshUI();
   }, 'Sì, svuota');
@@ -3298,6 +3256,7 @@ function reportHTML(r, admin){
 
 function openFeedback(){
   if(!currentUser) return;
+  setFabDot(false); // aperta la nuvoletta: il pallino si spegne subito, anche se l'elenco non si carica
   infoSheet.innerHTML = `
     <h4>Scrivi a Lænx</h4>
     <div class="sheet-sub">Bug e correzioni: scrivine una alla volta, così non si perde niente.</div>
@@ -3353,9 +3312,11 @@ function startEditReport(r){
 }
 function stopEditReport(){
   fbEditing = null;
-  document.getElementById('fbText').value = '';
-  document.getElementById('fbSend').textContent = 'Invia';
-  document.getElementById('fbCancelEdit').hidden = true;
+  const text = document.getElementById('fbText'), send = document.getElementById('fbSend'), cancel = document.getElementById('fbCancelEdit');
+  if(!text || !send || !cancel) return; // la scheda nel frattempo è stata chiusa o cambiata
+  text.value = '';
+  send.textContent = 'Invia';
+  cancel.hidden = true;
 }
 async function deleteMyReport(id){
   if(!navigator.onLine) return fbMsg('Serve internet per eliminarla.');
@@ -3488,14 +3449,15 @@ function showNews(list){
   infoOverlay.classList.remove('hidden');
   document.getElementById('newsOk').addEventListener('click', hideInfoSheet);
 }
-// Alla prima apertura dopo un aggiornamento: si segna subito come vista (e si salva coi dati), così non torna più
+// Alla prima apertura dopo un aggiornamento, a sincronizzazione finita e con la rete: si mostra e si segna come vista
+// (salvata coi dati), così non torna più. Se c'è già una scheda aperta si riprova al prossimo ritorno sull'app.
 function maybeShowNews(){
   const latest = NEWS[0].id;
   if(!currentUser || profile.newsSeen === latest) return;
+  if(!navigator.onLine || !infoOverlay.classList.contains('hidden') || !profileOverlay.classList.contains('hidden')) return;
   const unseen = NEWS.filter(n => !profile.newsSeen || n.id > profile.newsSeen).slice(0, 3);
   profile.newsSeen = latest;
   saveState();
-  if(!infoOverlay.classList.contains('hidden')) return; // c'è già una scheda aperta: si rilegge dal Profilo
   showNews(unseen);
 }
 
