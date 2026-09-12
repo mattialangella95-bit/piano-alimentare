@@ -3572,13 +3572,19 @@ function showNews(list){
 }
 // Alla prima apertura dopo un aggiornamento, a sincronizzazione finita e con la rete: si mostra e si segna come vista
 // (salvata coi dati), così non torna più. Se c'è già una scheda aperta si riprova al prossimo ritorno sull'app.
+// Se un altro telefono ha già un'app più nuova, newsSeen può essere più avanti delle nostre NEWS:
+// allora non si mostra niente e non si torna indietro (prima usciva una scheda vuota, e le novità ricomparivano).
+let newsShown = false; // al massimo una volta per apertura dell'app
 function maybeShowNews(){
   const latest = NEWS[0].id;
-  if(!currentUser || profile.newsSeen === latest) return;
+  if(!currentUser || newsShown) return;
+  if(profile.newsSeen && profile.newsSeen >= latest) return; // già vista questa, o una più nuova
   if(!navigator.onLine || !infoOverlay.classList.contains('hidden') || !profileOverlay.classList.contains('hidden')) return;
   const unseen = NEWS.filter(n => !profile.newsSeen || n.id > profile.newsSeen).slice(0, 3);
+  if(!unseen.length) return; // niente da raccontare: mai una scheda vuota
   profile.newsSeen = latest;
   saveState();
+  newsShown = true;
   showNews(unseen);
 }
 

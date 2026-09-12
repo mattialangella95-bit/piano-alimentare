@@ -1,6 +1,6 @@
 // Cambia questo numero ogni volta che pubblichi un aggiornamento dei file:
 // forza tutti i dispositivi a scaricare la nuova versione invece di usare la cache.
-const CACHE_VERSION = 'piano-v21';
+const CACHE_VERSION = 'piano-v22';
 const CACHE_NAME = `piano-alimentare-${CACHE_VERSION}`;
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './supabase.js'];
 
