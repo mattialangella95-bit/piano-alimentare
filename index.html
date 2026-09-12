@@ -1297,7 +1297,7 @@ function goToToday(){
 }
 // Sul telefono l'app resta aperta anche per giorni: quando si torna a guardarla si ricalcola "oggi".
 // Se nel frattempo è iniziato un nuovo giro del piano, i dati si ricaricano e applyState azzera i progressi.
-// Torna true se ci sono dati cambiati da salvare (nuovo giro, o quello in casa consumato): ci pensa syncWithCloud.
+// Torna true se è iniziato un nuovo giro (i dati azzerati vanno salvati: ci pensa syncWithCloud).
 function refreshToday(){
   const t = computeTodayIndex();
   if(JSON.stringify(t) === JSON.stringify(todayIdx)) return false;
@@ -1305,19 +1305,17 @@ function refreshToday(){
   todayIdx = t;
   currentCycle = t ? t.cycle : 0;
   const local = currentUser && currentCycle !== prevCycle && readJSON(localKey());
-  let consumed = false;
-  if(local) applyState(local); // consuma anche quello che c'è in casa
-  else if(currentUser && consumeHomeStock(currentCycle)){ consumed = true; autoSavePending = true; }
+  if(local) applyState(local);
   goToToday(); // è cambiato giorno: l'app si riapre su oggi
   refreshUI();
-  return !!local || consumed;
+  return !!local;
 }
 
 let currentTab = 'piano';
 let currentWeek = 0;
 let currentDay = 0;
 const weekCompleted = [false,false,false,false];
-const shopCheckedState = {}; // key -> bool
+const shopCheckedState = {}; // volta (settimana|giorno|pasto|prodotto) → true = presa tutta, numero = presa in parte
 let extraItems = [[],[],[],[]]; // articoli extra per settimana, non legati al piano alimentare
 let products = {}; // correzioni dell'utente su reparto e conservazione, per nome prodotto (minuscolo)
 let homeStock = {}; // quello che c'è in casa, per nome prodotto (minuscolo): vedi la sezione IN CASA
@@ -1471,8 +1469,6 @@ function applyState(saved){
   if(!(saved.dataVersion >= DATA_VERSION)){ migrateToV2(); needsSave = true; }
   if(migrateOldChecks()) needsSave = true;
   const savedCycle = typeof saved.cycle === 'number' ? saved.cycle : 0;
-  // Quello che c'è in casa si consuma coi giorni passati dall'ultima volta (le spunte sono ancora quelle del giro salvato)
-  if(consumeHomeStock(savedCycle)) needsSave = true;
   // Nuovo giro del piano: azzera settimane completate e spunte della spesa
   if(savedCycle !== currentCycle){
     resetProgress(savedCycle < currentCycle ? (currentCycle - savedCycle) * planData.length : Infinity);
@@ -1487,7 +1483,7 @@ function resetProgress(shiftWeeks = Infinity){
   Object.keys(shopCheckedState).forEach(k => {
     const parts = k.split('|');
     const w = Number(parts[0]);
-    if(parts.length >= 4 && shopCheckedState[k] && w >= shiftWeeks) kept[[w - shiftWeeks, ...parts.slice(1)].join('|')] = true;
+    if(parts.length >= 4 && shopCheckedState[k] && w >= shiftWeeks) kept[[w - shiftWeeks, ...parts.slice(1)].join('|')] = shopCheckedState[k];
   });
   Object.keys(shopCheckedState).forEach(k => delete shopCheckedState[k]);
   Object.assign(shopCheckedState, kept);
@@ -2177,31 +2173,42 @@ function shoppingLists(){
   return [{ id: 'week', title: planData[w].name, sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), null), shareTitle: `Spesa ${planData[w].name} (${range(0, 6)})`, withExtras: true }];
 }
 // Una voce è a posto quando ogni sua "volta" è comprata o coperta da quello che c'è in casa; se solo alcune, è presa in parte
+// Quanto è stato preso di una volta: 'all' (tutto), una quantità in unità base ("preso in parte") o 0
+function boughtOf(e){ const v = shopCheckedState[e.ek]; return v === true ? 'all' : typeof v === 'number' && v > 0 ? v : 0; }
 function remainingQtys(it){
   const out = [];
   it.entries.forEach(e => {
-    const c = shopCheckedState[e.ek] ? 'all' : homeCover[e.ek];
-    if(c === 'all') return;
-    if(c){ const q = baseQty(e.qty); out.push(`${numIt(q.n - c)} ${q.unit}`); return; } // coperta in parte: resta il resto
-    out.push(e.qty);
+    const b = boughtOf(e), c = homeCover[e.ek];
+    if(b === 'all' || c === 'all') return;
+    if(!b && !c){ out.push(e.qty); return; }
+    const q = baseQty(e.qty); // presa in parte o coperta in parte da casa: resta il resto
+    const left = q.n - b - (c || 0);
+    if(left > 1e-9) out.push(`${numIt(left)} ${q.unit}`);
   });
   return out;
 }
+// Quanto di una voce è già stato preso
+function boughtQtys(it){
+  return it.entries.map(e => { const b = boughtOf(e); return b === 'all' ? e.qty : b ? `${numIt(b)} ${baseQty(e.qty).unit}` : null; }).filter(Boolean);
+}
 // Quanto di una voce viene da casa
 function homeQtys(it){
-  return it.entries.filter(e => !shopCheckedState[e.ek] && homeCover[e.ek])
-    .map(e => homeCover[e.ek] === 'all' ? e.qty : `${numIt(homeCover[e.ek])} ${baseQty(e.qty).unit}`);
+  return it.entries.filter(e => boughtOf(e) !== 'all' && homeCover[e.ek]).map(e => {
+    const c = homeCover[e.ek], b = boughtOf(e), q = baseQty(e.qty);
+    if(c !== 'all') return `${numIt(c)} ${q.unit}`;
+    return b ? `${numIt(q.n - b)} ${q.unit}` : e.qty;
+  });
 }
 function itemStatus(it){
-  const bought = it.entries.filter(e => shopCheckedState[e.ek]);
+  const bought = boughtQtys(it);
   const home = homeQtys(it);
   const done = remainingQtys(it).length === 0;
   return { bought, home, done, partial: !done && (bought.length > 0 || home.length > 0) };
 }
 
-// ---------- IN CASA: avanzi e cose che hai già. Si tolgono dalla spesa e si consumano da sole seguendo il piano ----------
-// homeStock[chiave] = { name, amount, unit, at, since }: amount in unità base (g, ml, pz…), null = "ce l'ho" senza contarlo;
-// at = giorno da cui il piano non l'ha ancora consumato · since = da quando c'è (per avvisare sui freschi)
+// ---------- IN CASA: quello che hai già. Lo segni tu e toglie dalla spesa; l'app non lo cambia mai da sola ----------
+// homeStock[chiave] = { name, amount, unit, since }: amount in unità base (g, ml, pz…), null = "ce l'ho" senza contarlo;
+// since = da quando c'è (per avvisare sui freschi). Non si consuma coi giorni: l'app non può sapere cosa mangi davvero.
 let homeCover = {};   // volta (ek) → 'all' se la copre tutta quello che c'è in casa, altrimenti la quantità coperta
 let homeOpen = readJSON('piano_spesa_casa') === true;
 // tickMemo[voce] = { first, base, got }: first = com'era prima della prima spunta (togliendo la spunta si torna lì),
@@ -2212,48 +2219,7 @@ let partialOpenKey = null; // la tendina aperta
 function todayISO(){ return toISODate(now_date()); }
 function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
 
-// Giorno del piano di una data, con la settimana contata dal giro baseCycle (può venire negativa o oltre la 4)
-function slotOfDate(date, baseCycle){
-  const diff = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - START_DATE) / 86400000);
-  if(diff < 0) return null;
-  return { w: Math.floor(diff / 7) - baseCycle * planData.length, d: diff % 7 };
-}
-// Le volte in cui il piano usa un prodotto in quel giorno
-function plannedOn(slot, key){
-  const n = planData.length, day = planData[((slot.w % n) + n) % n].days[slot.d];
-  const out = [];
-  MEAL_TYPES.forEach(m => day.meals[m].forEach(it => {
-    if(it.buy !== false && cleanName(it.name).toLowerCase() === key) out.push({ ek: `${slot.w}|${slot.d}|${m}|${key}`, qty: it.qty || 'q.b.' });
-  }));
-  return out;
-}
-// Col passare dei giorni il piano "mangia" quello che c'è in casa: lo consumano le volte non comprate a parte.
-// baseCycle = il giro a cui si riferiscono le spunte. Torna true se ha cambiato qualcosa.
-function consumeHomeStock(baseCycle){
-  const today = parseISODate(todayISO());
-  let changed = false;
-  Object.entries(homeStock).forEach(([key, s]) => {
-    const from = parseISODate(s.at);
-    if(!(from < today)) return;
-    if(s.amount != null){
-      let used = 0;
-      for(let d = from, i = 0; d < today && i < 120; d.setDate(d.getDate() + 1), i++){
-        const slot = slotOfDate(d, baseCycle);
-        if(slot) plannedOn(slot, key).forEach(e => {
-          if(shopCheckedState[e.ek]) return;
-          const q = baseQty(e.qty);
-          if(q && q.unit === s.unit) used += q.n;
-        });
-      }
-      s.amount = Math.max(0, s.amount - used);
-    }
-    s.at = toISODate(today);
-    changed = true;
-    if(s.amount != null && s.amount <= 1e-9) delete homeStock[key];
-  });
-  return changed;
-}
-// Da oggi in avanti, quello che c'è in casa copre le volte non ancora comprate, in ordine di data
+// Da oggi in avanti, quello che c'è in casa copre la parte non ancora presa delle volte, in ordine di data
 function computeHomeCover(){
   homeCover = {};
   if(!todayIdx || !Object.keys(homeStock).length) return;
@@ -2265,21 +2231,34 @@ function computeHomeCover(){
     let left = s.amount == null ? Infinity : s.amount;
     for(const e of it.entries){
       if(left <= 1e-9) break;
-      if(shopCheckedState[e.ek]) continue;
+      const b = boughtOf(e);
+      if(b === 'all') continue;
       const q = baseQty(e.qty);
       if(!q || s.amount == null){ homeCover[e.ek] = 'all'; continue; } // q.b. o "ce l'ho": basta averlo
       if(q.unit !== s.unit) continue;
-      const c = Math.min(q.n, left);
-      homeCover[e.ek] = c >= q.n - 1e-9 ? 'all' : c;
+      const need = q.n - b;
+      if(need <= 1e-9) continue;
+      const c = Math.min(need, left);
+      homeCover[e.ek] = c >= need - 1e-9 ? 'all' : c;
       left -= c;
     }
   });
 }
+// Si usa solo quando lo chiede l'utente ("🏠 Metti in casa")
 function addStock(name, n, unit){
   const key = name.toLowerCase(), s = homeStock[key], today = todayISO();
   if(s && s.amount == null) return; // "ce l'ho" senza contarlo: resta così
   if(s && s.unit === unit){ s.amount += n; s.since = today; return; }
-  homeStock[key] = { name, amount: n, unit, at: today, since: today };
+  homeStock[key] = { name, amount: n, unit, since: today };
+}
+// Messaggio in basso con "🏠 Metti in casa" per quello che avanza: decide l'utente
+function offerToHome(text, name, n, unit){
+  showToast(text, '🏠 Metti in casa', () => {
+    addStock(name, n, unit);
+    saveState();
+    if(currentTab === 'spesa') renderShopping();
+    showToast(`Messo in 🏠 In casa: ${sumQty([`${numIt(n)} ${unit}`])} di ${name}`);
+  });
 }
 // Quello che avanza comprando a confezioni: servono 240 g, 1 confezione da 500 g → avanzano 260 g
 function packLeftover(name, qtys){
@@ -2289,20 +2268,21 @@ function packLeftover(name, qtys){
   const extra = Math.ceil(need / pack.size - 1e-9) * pack.size - need;
   return extra > 1e-9 ? { n: extra, unit: pack.unit } : null;
 }
-// Com'era una voce: le sue spunte e quello che c'era in casa
+// Com'era una voce: le sue spunte (in casa non si tocca, lo cambia solo l'utente)
 function snapshotItem(it){
-  return { stock: homeStock[it.key] ? { ...homeStock[it.key] } : null, checked: it.entries.filter(e => shopCheckedState[e.ek]).map(e => e.ek) };
+  const checks = {};
+  it.entries.forEach(e => { if(shopCheckedState[e.ek] != null) checks[e.ek] = shopCheckedState[e.ek]; });
+  return { checks };
 }
 function restoreItem(it, snap){
   it.entries.forEach(e => { delete shopCheckedState[e.ek]; });
-  snap.checked.forEach(ek => { shopCheckedState[ek] = true; });
-  if(snap.stock) homeStock[it.key] = { ...snap.stock }; else delete homeStock[it.key];
+  Object.assign(shopCheckedState, snap.checks || Object.fromEntries((snap.checked || []).map(ek => [ek, true]))); // anche i ricordi della versione di prima
 }
 function baseUnitOf(qtys){ const q = qtys.map(baseQty).find(Boolean); return q ? q.unit : null; }
 function unitChoices(base){ return base === 'g' ? ['g', 'kg'] : base === 'ml' ? ['ml', 'l'] : [base]; }
 
-// Spunta di una voce: prende quello che manca (le volte coperte da casa restano a casa) e,
-// se si compra a confezioni, quello che avanza va in casa. Togliendo la spunta si torna com'era.
+// Spunta di una voce: prende quello che manca (la parte coperta da casa resta a casa); se si compra
+// a confezioni propone di mettere in casa quello che avanza. Togliendo la spunta si torna com'era.
 // Sotto la voce appena spuntata compare la tendina "Preso solo in parte?".
 function toggleBought(shopKey, it){
   const st = itemStatus(it);
@@ -2327,41 +2307,36 @@ function toggleBought(shopKey, it){
     partialOffer = shopKey;
     partialOpenKey = null;
   } else { delete memo.base; partialOffer = null; }
-  let used = 0;
   it.entries.forEach(en => {
-    if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') return;
-    if(homeCover[en.ek]) used += homeCover[en.ek]; // la parte che c'era in casa si usa adesso
-    shopCheckedState[en.ek] = true;
+    if(boughtOf(en) === 'all' || homeCover[en.ek] === 'all') return;
+    const c = homeCover[en.ek];
+    shopCheckedState[en.ek] = c ? baseQty(en.qty).n - c : true; // coperta in parte da casa: si prende solo il resto
   });
-  const s = homeStock[it.key];
-  if(s && s.amount != null && used){ s.amount -= used; if(s.amount <= 1e-9) delete homeStock[it.key]; }
-  const extra = packLeftover(it.name, toBuy);
-  if(extra) addStock(it.name, extra.n, extra.unit);
   saveState();
   renderShopping();
-  if(extra) showToast(`Avanzano ${sumQty([`${numIt(extra.n)} ${extra.unit}`])}: li metto in 🏠 In casa`);
+  const extra = packLeftover(it.name, toBuy);
+  if(extra) offerToHome(`Dalla confezione avanzano ${sumQty([`${numIt(extra.n)} ${extra.unit}`])}`, it.name, extra.n, extra.unit);
 }
-// "Preso solo in parte?": si torna a com'era prima della spunta e si segna quanto è stato preso davvero.
-// Le volte si coprono in ordine di data finché basta; quello che resta (o che è in più) va in casa.
+// "Preso solo in parte?": si torna a com'era prima della spunta e si segna quanto è stato preso davvero,
+// volta per volta in ordine di data. Quello che manca resta in lista; se è di più si può mettere in casa.
 function applyPartial(shopKey, amount){
   const it = shopIndex[shopKey], memo = tickMemo[shopKey], base = memo && memo.base;
   if(!it || !base) return;
   restoreItem(it, base);
   computeHomeCover();
-  let left = amount, usedHome = 0;
+  let left = amount;
   for(const en of it.entries){
-    if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') continue;
+    if(left <= 1e-9) break;
+    const b = boughtOf(en), c = homeCover[en.ek];
+    if(b === 'all' || c === 'all') continue;
     const q = baseQty(en.qty);
     if(!q || q.unit !== base.unit) continue;
-    const cov = homeCover[en.ek] || 0;
-    if(left < q.n - cov - 1e-9) break;
-    left -= q.n - cov;
-    usedHome += cov;
-    shopCheckedState[en.ek] = true;
+    const take = Math.min(q.n - b - (c || 0), left);
+    if(take <= 1e-9) continue;
+    left -= take;
+    const got = b + take;
+    shopCheckedState[en.ek] = !c && got >= q.n - 1e-9 ? true : got;
   }
-  const s = homeStock[it.key];
-  if(s && s.amount != null && usedHome){ s.amount -= usedHome; if(s.amount <= 1e-9) delete homeStock[it.key]; }
-  if(left > 1e-9) addStock(it.name, left, base.unit); // copre in parte la prossima volta, o avanza
   memo.got = amount; // la tendina resta, con quanto si è segnato, per correggerlo o annullarlo
   partialOffer = shopKey;
   partialOpenKey = null;
@@ -2369,16 +2344,15 @@ function applyPartial(shopKey, amount){
   renderShopping();
   const fmt = n => sumQty([`${numIt(n)} ${base.unit}`]);
   const diff = amount - base.toBuy;
-  showToast(Math.abs(diff) < 1e-9 ? 'Segnato ✓'
-    : diff < 0 ? `Segnato: mancano ${fmt(-diff)}, restano in lista`
-    : `Segnato: ${fmt(diff)} in più vanno in 🏠 In casa`);
+  if(diff > 1e-9) offerToHome(`Segnato: ${fmt(diff)} in più`, it.name, diff, base.unit);
+  else showToast(diff < -1e-9 ? `Segnato: mancano ${fmt(-diff)}, restano in lista` : 'Segnato ✓');
 }
 // "↩︎ Annulla": la voce torna com'era prima dell'ultima spunta
 function undoPartial(shopKey){
   const it = shopIndex[shopKey], memo = tickMemo[shopKey];
   if(!it || !memo || !memo.base) return;
   restoreItem(it, memo.base);
-  if(memo.base.checked.length === memo.first.checked.length) delete tickMemo[shopKey]; // tornata all'inizio
+  if(JSON.stringify(memo.base.checks || memo.base.checked) === JSON.stringify(memo.first.checks || memo.first.checked)) delete tickMemo[shopKey]; // tornata all'inizio
   else { delete memo.got; delete memo.base; }
   partialOffer = null;
   partialOpenKey = null;
@@ -2399,7 +2373,7 @@ function partialBoxHTML(key){
       <summary>${got != null ? `${got < pb.toBuy ? 'Preso in parte' : got > pb.toBuy ? 'Preso di più' : 'Preso'}: ${fmt(got)} su ${fmt(pb.toBuy)}` : 'Preso solo in parte?'}</summary>
       <div class="sheet-hint">${got != null
         ? `Hai segnato ${fmt(got)} su ${fmt(pb.toBuy)}. Puoi correggerlo o annullarlo finché la voce non è presa tutta.`
-        : `Ne servivano ${fmt(pb.toBuy)}. Scrivi quanto ne hai preso: quello che manca resta in lista, quello in più va in 🏠 In casa.`}</div>
+        : `Ne servivano ${fmt(pb.toBuy)}. Scrivi quanto ne hai preso: quello che manca resta in lista, se è di più potrai metterlo in 🏠 In casa.`}</div>
       <div class="pack-row">
         <input class="profile-input pack-size" data-partial-amt type="number" inputmode="decimal" min="0" step="any" value="${Math.round((got != null ? got : pb.toBuy) * 10) / 10}">
         <select class="profile-input pack-unit" data-partial-unit>${unitChoices(pb.unit).map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('')}</select>
@@ -2428,7 +2402,7 @@ function homeBoxHTML(){
   return `
     <details class="home-box" id="homeBox"${homeOpen ? ' open' : ''}>
       <summary>🏠 In casa${items.length ? ` · ${items.length} ${items.length === 1 ? 'prodotto' : 'prodotti'}` : ''}</summary>
-      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa e si consuma da solo, giorno per giorno, seguendo il piano.</div>
+      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa. L'app non sa quando lo usi: quando lo finisci o ne usi un po', aggiornalo tu (tocca la riga).</div>
       ${rows || '<div class="shop-empty">Niente per ora.</div>'}
       <div class="ing-add" data-home-add>+ Aggiungi quello che hai in casa</div>
     </details>`;
@@ -2498,13 +2472,13 @@ function openHomeEditor(key, presetKey){
     const name = s ? s.name : all.find(x => x.key === k).name;
     const today = todayISO();
     if(noCountOn){
-      homeStock[k] = { name, amount: null, unit: null, at: today, since: (prev && prev.since) || today };
+      homeStock[k] = { name, amount: null, unit: null, since: (prev && prev.since) || today };
     } else {
       let n = toNum(amt.value), unit = unitSel.value;
       if(!(n > 0)) return msg(s ? 'Scrivi quanto ne hai, oppure premi "Finito".' : 'Scrivi quanto ne hai.');
       if(BASE_UNITS[unit]){ n *= BASE_UNITS[unit][1]; unit = BASE_UNITS[unit][0]; }
       const more = !prev || prev.amount == null || n > prev.amount;
-      homeStock[k] = { name, amount: n, unit, at: today, since: more ? today : (prev.since || today) };
+      homeStock[k] = { name, amount: n, unit, since: more ? today : (prev.since || today) };
     }
     saveState();
     hideInfoSheet();
@@ -2604,7 +2578,7 @@ function shopListHTML(list){
       const n = it.entries.length;
       const unCounted = st.home.length && homeStock[it.key] && homeStock[it.key].amount == null;
       const got = [];
-      if(st.bought.length) got.push(`già presi ${sumQty(st.bought.map(e => e.qty))}`);
+      if(st.bought.length) got.push(`già presi ${sumQty(st.bought)}`);
       if(st.home.length && !unCounted) got.push(`🏠 in casa ${sumQty(st.home)}`);
       const meta = unCounted ? '🏠 ce l\'hai in casa'
         : got.length ? `${escapeHtml(got.join(' · '))} su ${escapeHtml(total)}`
@@ -2669,13 +2643,13 @@ function showShopInfo(item){
   const packUnit = pack ? pack.unit : (Object.keys(qtyTotals(allQ).totals)[0] || 'pz');
   const hs = homeStock[item.key];
   const rows = item.entries.map(en => {
-    const on = !!shopCheckedState[en.ek];
+    const b = boughtOf(en), on = b === 'all';
     return `
     <div class="sheet-row entry-row${on ? ' on' : ''}" data-ek="${escapeHtml(en.ek)}">
-      <div class="shop-check ${on ? 'checked' : ''}">${on ? '✓' : ''}</div>
+      <div class="shop-check ${on ? 'checked' : b ? 'half' : ''}">${on ? '✓' : b ? '–' : ''}</div>
       <div class="entry-text">
         <div class="sheet-day">${escapeHtml(en.day)}</div>
-        <div class="sheet-meal">${escapeHtml(en.meal)}${homeCover[en.ek] ? ' · 🏠 da casa' : ''}</div>
+        <div class="sheet-meal">${escapeHtml(en.meal)}${b && !on ? ` · presi ${escapeHtml(sumQty([`${numIt(b)} ${baseQty(en.qty).unit}`]))}` : ''}${homeCover[en.ek] ? ' · 🏠 da casa' : ''}</div>
       </div>
       <div class="sheet-qty">${escapeHtml(en.qty)}</div>
     </div>`;
@@ -2683,7 +2657,7 @@ function showShopInfo(item){
   // Prima reparto, conservazione e confezione; i giorni sotto, in una tendina
   infoSheet.innerHTML = `
     <h4>${escapeHtml(item.name)}</h4>
-    <div class="sheet-sub">Totale ${escapeHtml(sumQty(allQ))}${st.bought.length ? ` · già presi ${escapeHtml(sumQty(st.bought.map(e => e.qty)))}` : ''}</div>
+    <div class="sheet-sub">Totale ${escapeHtml(sumQty(allQ))}${st.bought.length ? ` · già presi ${escapeHtml(sumQty(st.bought))}` : ''}</div>
     <div class="home-line" data-home-open role="button">🏠 In casa: <b>${hs ? escapeHtml(stockText(hs)) : 'niente'}</b><span class="home-edit">${hs ? 'Modifica' : 'Aggiungi'}</span></div>
     <h5>Reparto</h5>
     <div class="chip-row">${REPARTI.map(([k, emoji, label]) => `<div class="chip${info.reparto === k ? ' active' : ''}" data-set-reparto="${k}">${emoji} ${label}</div>`).join('')}</div>
@@ -2712,7 +2686,7 @@ function showShopInfo(item){
   const refresh = () => { saveState(); item.info = productInfo(item.name); renderShopping(); showShopInfo(item); };
   infoSheet.querySelectorAll('[data-ek]').forEach(row => row.addEventListener('click', () => {
     const ek = row.getAttribute('data-ek');
-    if(shopCheckedState[ek]) delete shopCheckedState[ek]; else shopCheckedState[ek] = true;
+    if(shopCheckedState[ek] === true) delete shopCheckedState[ek]; else shopCheckedState[ek] = true; // presa in parte → presa tutta
     refresh();
   }));
   infoSheet.querySelector('[data-frozen]').addEventListener('click', () => {

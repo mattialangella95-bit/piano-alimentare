@@ -71,15 +71,16 @@ Senza rete l'app funziona lo stesso e rispedisce al ritorno della linea.
    con i soli prodotti del piano, così il nome combacia sempre.
 6. **Le quantità passano da `cleanQty` e `parseQty`.** I totali sono in unità base (g, ml, pz…),
    per gli intervalli conta il massimo, "q.b." non si somma.
-7. **In casa si consuma da solo** coi giorni passati (`consumeHomeStock`), e copre le prossime volte
-   non comprate da oggi in avanti (`computeHomeCover`). Una spunta ricorda com'era, e toglierla lo ripristina.
-   Sotto la voce appena spuntata c'è la tendina "Preso solo in parte?" (`applyPartial`): si torna a prima
-   della spunta e si coprono le volte in ordine di data con quanto preso davvero, il resto va in casa.
-   Quello che si è segnato resta visibile e annullabile finché la voce non è presa tutta: sta in `tickMemo`,
-   che si salva coi dati e si azzera a ogni nuovo giro.
-8. **Il tasto indietro di Android** chiude schede e pannelli invece di uscire: c'è sempre una
+7. **In casa lo cambia solo l'utente.** L'app non sa cosa si mangia davvero, quindi non lo consuma coi giorni
+   e non ci mette niente da sola: gli avanzi (confezioni, "preso di più") si propongono col tasto "🏠 Metti in casa".
+   Copre la parte non presa delle prossime volte, da oggi in avanti (`computeHomeCover`).
+8. **Una spunta vale `true` (presa tutta) o una quantità (presa in parte, in unità base).** Si legge con `boughtOf`.
+   La tendina "Preso solo in parte?" (`applyPartial`) torna a prima della spunta e segna quanto preso davvero,
+   volta per volta in ordine di data. Resta visibile e annullabile finché la voce non è presa tutta:
+   sta in `tickMemo`, che si salva coi dati e si azzera a ogni nuovo giro.
+9. **Il tasto indietro di Android** chiude schede e pannelli invece di uscire: c'è sempre una
    "pagina di guardia" in cronologia.
-9. **Le chiavi Supabase nel codice sono quelle pubbliche (anon)**: la sicurezza sta nelle regole RLS
+10. **Le chiavi Supabase nel codice sono quelle pubbliche (anon)**: la sicurezza sta nelle regole RLS
    dei file `.sql`. Mai mettere nel codice password o chiavi di servizio.
 
 ## Segnalazioni
