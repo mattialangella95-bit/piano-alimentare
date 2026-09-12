@@ -73,6 +73,8 @@ Senza rete l'app funziona lo stesso e rispedisce al ritorno della linea.
    per gli intervalli conta il massimo, "q.b." non si somma.
 7. **In casa si consuma da solo** coi giorni passati (`consumeHomeStock`), e copre le prossime volte
    non comprate da oggi in avanti (`computeHomeCover`). Una spunta ricorda com'era, e toglierla lo ripristina.
+   Sotto la voce appena spuntata c'è la tendina "Preso solo in parte?" (`applyPartial`): si torna a prima
+   della spunta e si coprono le volte in ordine di data con quanto preso davvero, il resto va in casa.
 8. **Il tasto indietro di Android** chiude schede e pannelli invece di uscire: c'è sempre una
    "pagina di guardia" in cronologia.
 9. **Le chiavi Supabase nel codice sono quelle pubbliche (anon)**: la sicurezza sta nelle regole RLS

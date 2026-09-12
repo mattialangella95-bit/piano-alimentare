@@ -1098,6 +1098,23 @@
   }
   .home-line .home-edit{ margin-left:auto; font-weight:700; color:var(--forest); }
   .home-count{ margin:14px 0 0; }
+  /* "Preso solo in parte?": tendina sotto la voce appena spuntata */
+  .partial-box{ margin:0 0 10px 32px; }
+  .partial-box summary{
+    list-style:none;
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 11px;
+    border-radius:14px;
+    background:var(--tint); color:var(--forest);
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-sm); font-weight:700;
+    cursor:pointer;
+  }
+  .partial-box summary::-webkit-details-marker{ display:none; }
+  .partial-box summary::after{ content:'▾'; transition:transform 0.15s; }
+  .partial-box[open] summary::after{ transform:rotate(180deg); }
+  .partial-box .sheet-hint{ margin:8px 0 6px; }
+  .partial-save{ padding:9px 14px; }
   .days-toggle summary, .home-box summary{
     list-style:none;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -2174,7 +2191,9 @@ function itemStatus(it){
 // at = giorno da cui il piano non l'ha ancora consumato · since = da quando c'è (per avvisare sui freschi)
 let homeCover = {};   // volta (ek) → 'all' se la copre tutta quello che c'è in casa, altrimenti la quantità coperta
 let homeOpen = readJSON('piano_spesa_casa') === true;
-const stockUndo = {}; // voce della lista → com'era "in casa" prima della spunta (togliendo la spunta si torna lì)
+const stockUndo = {};   // voce della lista → com'era prima della prima spunta (togliendo la spunta si torna lì)
+const partialBase = {}; // voce della lista → com'era prima dell'ultima spunta e quanto serviva, per "Preso solo in parte?"
+let partialOffer = null, partialExpanded = false; // la voce appena spuntata, sotto cui compare la tendina
 
 function todayISO(){ return toISODate(now_date()); }
 function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
@@ -2256,23 +2275,44 @@ function packLeftover(name, qtys){
   const extra = Math.ceil(need / pack.size - 1e-9) * pack.size - need;
   return extra > 1e-9 ? { n: extra, unit: pack.unit } : null;
 }
+// Com'era una voce: le sue spunte e quello che c'era in casa
+function snapshotItem(it){
+  return { stock: homeStock[it.key] ? { ...homeStock[it.key] } : null, checked: it.entries.filter(e => shopCheckedState[e.ek]).map(e => e.ek) };
+}
+function restoreItem(it, snap){
+  it.entries.forEach(e => { delete shopCheckedState[e.ek]; });
+  snap.checked.forEach(ek => { shopCheckedState[ek] = true; });
+  if(snap.stock) homeStock[it.key] = { ...snap.stock }; else delete homeStock[it.key];
+}
+function baseUnitOf(qtys){ const q = qtys.map(baseQty).find(Boolean); return q ? q.unit : null; }
+function unitChoices(base){ return base === 'g' ? ['g', 'kg'] : base === 'ml' ? ['ml', 'l'] : [base]; }
+
 // Spunta di una voce: prende quello che manca (le volte coperte da casa restano a casa) e,
 // se si compra a confezioni, quello che avanza va in casa. Togliendo la spunta si torna com'era.
+// Sotto la voce appena spuntata compare la tendina "Preso solo in parte?".
 function toggleBought(shopKey, it){
   const st = itemStatus(it);
   if(st.done){
     if(!st.bought.length) return showToast('Ce l\'hai già in casa: per cambiarlo apri 🏠 In casa');
-    it.entries.forEach(en => { delete shopCheckedState[en.ek]; });
-    if(shopKey in stockUndo){
-      if(stockUndo[shopKey]) homeStock[it.key] = stockUndo[shopKey]; else delete homeStock[it.key];
-      delete stockUndo[shopKey];
-    }
+    if(stockUndo[shopKey]) restoreItem(it, stockUndo[shopKey]);
+    else it.entries.forEach(en => { delete shopCheckedState[en.ek]; });
+    delete stockUndo[shopKey];
+    delete partialBase[shopKey];
+    if(partialOffer === shopKey) partialOffer = null;
     saveState();
     renderShopping();
     return;
   }
-  stockUndo[shopKey] = homeStock[it.key] ? { ...homeStock[it.key] } : null;
+  const snap = snapshotItem(it);
+  if(!stockUndo[shopKey]) stockUndo[shopKey] = snap;
   const toBuy = remainingQtys(it);
+  const unit = baseUnitOf(toBuy);
+  if(unit){
+    const need = toBuy.map(baseQty).filter(q => q && q.unit === unit).reduce((a, q) => a + q.n, 0);
+    partialBase[shopKey] = { ...snap, unit, toBuy: need };
+    partialOffer = shopKey;
+    partialExpanded = false;
+  }
   let used = 0;
   it.entries.forEach(en => {
     if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') return;
@@ -2286,6 +2326,49 @@ function toggleBought(shopKey, it){
   saveState();
   renderShopping();
   if(extra) showToast(`Avanzano ${sumQty([`${numIt(extra.n)} ${extra.unit}`])}: li metto in 🏠 In casa`);
+}
+// "Preso solo in parte?": si torna a com'era prima della spunta e si segna quanto è stato preso davvero.
+// Le volte si coprono in ordine di data finché basta; quello che resta (o che è in più) va in casa.
+function applyPartial(shopKey, amount){
+  const it = shopIndex[shopKey], base = partialBase[shopKey];
+  if(!it || !base) return;
+  restoreItem(it, base);
+  computeHomeCover();
+  let left = amount, usedHome = 0;
+  for(const en of it.entries){
+    if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') continue;
+    const q = baseQty(en.qty);
+    if(!q || q.unit !== base.unit) continue;
+    const cov = homeCover[en.ek] || 0;
+    if(left < q.n - cov - 1e-9) break;
+    left -= q.n - cov;
+    usedHome += cov;
+    shopCheckedState[en.ek] = true;
+  }
+  const s = homeStock[it.key];
+  if(s && s.amount != null && usedHome){ s.amount -= usedHome; if(s.amount <= 1e-9) delete homeStock[it.key]; }
+  if(left > 1e-9) addStock(it.name, left, base.unit); // copre in parte la prossima volta, o avanza
+  partialOffer = null;
+  saveState();
+  renderShopping();
+  const fmt = n => sumQty([`${numIt(n)} ${base.unit}`]);
+  const diff = amount - base.toBuy;
+  showToast(Math.abs(diff) < 1e-9 ? 'Segnato ✓'
+    : diff < 0 ? `Segnato: mancano ${fmt(-diff)}, restano in lista`
+    : `Segnato: ${fmt(diff)} in più vanno in 🏠 In casa`);
+}
+function partialBoxHTML(key){
+  const pb = partialBase[key];
+  return `
+    <details class="partial-box" id="partialBox"${partialExpanded ? ' open' : ''}>
+      <summary>Preso solo in parte?</summary>
+      <div class="sheet-hint">Ne servivano ${escapeHtml(sumQty([`${numIt(pb.toBuy)} ${pb.unit}`]))}. Scrivi quanto ne hai preso: quello che manca resta in lista, quello in più va in 🏠 In casa.</div>
+      <div class="pack-row">
+        <input class="profile-input pack-size" id="partialAmt" type="number" inputmode="decimal" min="0" step="any" value="${Math.round(pb.toBuy * 10) / 10}">
+        <select class="profile-input pack-unit" id="partialUnit">${unitChoices(pb.unit).map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('')}</select>
+        <div class="copy-btn partial-save" data-partial-save role="button">Salva</div>
+      </div>
+    </details>`;
 }
 
 // Tendina in cima alla Lista spesa
@@ -2358,7 +2441,7 @@ function openHomeEditor(key, presetKey){
     const k = chosen();
     const it = all.find(x => x.key === k), cur = homeStock[k];
     const base = it ? Object.keys(qtyTotals(it.entries.map(e => e.qty)).totals)[0] : null;
-    const units = base === 'g' ? ['g', 'kg'] : base === 'ml' ? ['ml', 'l'] : base ? [base] : ['pz', 'g', 'ml'];
+    const units = base ? unitChoices(base) : ['pz', 'g', 'ml'];
     if(cur && cur.unit && !units.includes(cur.unit)) units.unshift(cur.unit);
     unitSel.innerHTML = units.map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('');
     amt.value = cur && cur.amount != null ? String(Math.round(cur.amount * 10) / 10) : '';
@@ -2457,6 +2540,12 @@ function renderShopping(){
   mainContent.innerHTML = html;
   attachExtraItemHandlers();
   document.getElementById('homeBox').addEventListener('toggle', (e) => { homeOpen = e.target.open; writeJSON('piano_spesa_casa', homeOpen); });
+  const partialBox = document.getElementById('partialBox');
+  if(partialBox) partialBox.addEventListener('toggle', (e) => {
+    if(!e.target.isConnected) return; // l'evento arriva dopo: la lista può essere già stata ridisegnata
+    partialExpanded = e.target.open;
+    if(partialExpanded) e.target.querySelector('#partialAmt').select();
+  });
 }
 
 function shopListHTML(list){
@@ -2493,6 +2582,7 @@ function shopListHTML(list){
           </div>
           <div class="info-btn" data-action="info">ⓘ</div>
         </div>`;
+      if(key === partialOffer && partialBase[key]) html += partialBoxHTML(key);
     });
     html += `</div>`;
   });
@@ -2632,6 +2722,13 @@ mainContent.addEventListener('click', (e) => {
     const list = shoppingLists().find(l => l.id === share.dataset.share);
     const text = list && listText(list);
     if(text) shareText(text); else showToast('Hai già spuntato tutto 👍');
+    return;
+  }
+  if(e.target.closest('[data-partial-save]')){
+    let n = toNum(document.getElementById('partialAmt').value), unit = document.getElementById('partialUnit').value;
+    if(!(n >= 0)) return showToast('Scrivi quanto ne hai preso');
+    if(BASE_UNITS[unit]){ n *= BASE_UNITS[unit][1]; unit = BASE_UNITS[unit][0]; }
+    applyPartial(partialOffer, n);
     return;
   }
   if(e.target.closest('[data-home-add]')){ openHomeEditor(null); return; }
