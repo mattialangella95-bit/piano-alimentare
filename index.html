@@ -1074,7 +1074,31 @@
 
   /* DETTAGLIO ⓘ: i giorni in cui serve un prodotto stanno in una tendina, chiusa all'inizio */
   .days-toggle{ margin-top:16px; border-top:1px solid var(--line); }
-  .days-toggle summary{
+  /* IN CASA: tendina in cima alla Lista spesa */
+  .home-box{
+    margin-bottom:14px;
+    padding:0 12px;
+    border:1px solid var(--tint-line); border-radius:12px;
+    background:var(--tint-soft);
+  }
+  .home-box[open]{ padding-bottom:10px; }
+  .home-box .sheet-hint{ margin:0 0 4px; }
+  .home-box .shop-empty{ padding:6px 4px; }
+  .home-item{ cursor:pointer; }
+  .home-old{ color:var(--clay); }
+  .home-line{
+    display:flex; align-items:center; gap:6px;
+    margin:2px 0 0;
+    padding:9px 12px;
+    border:1px solid var(--tint-line); border-radius:10px;
+    background:var(--tint-soft);
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); color:var(--ink);
+    cursor:pointer;
+  }
+  .home-line .home-edit{ margin-left:auto; font-weight:700; color:var(--forest); }
+  .home-count{ margin:14px 0 0; }
+  .days-toggle summary, .home-box summary{
     list-style:none;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding:12px 0 4px;
@@ -1083,9 +1107,10 @@
     color:var(--forest);
     cursor:pointer;
   }
-  .days-toggle summary::-webkit-details-marker{ display:none; }
-  .days-toggle summary::after{ content:'▾'; transition:transform 0.15s; }
-  .days-toggle[open] summary::after{ transform:rotate(180deg); }
+  .days-toggle summary::-webkit-details-marker, .home-box summary::-webkit-details-marker{ display:none; }
+  .days-toggle summary::after, .home-box summary::after{ content:'▾'; transition:transform 0.15s; }
+  .days-toggle[open] summary::after, .home-box[open] summary::after{ transform:rotate(180deg); }
+  .home-box summary{ padding:11px 0; }
 
   /* TELEFONO IN ORIZZONTALE: colonna più larga e intestazione che scorre via, così resta spazio per il piano */
   @media (orientation: landscape) and (max-height: 540px){
@@ -1246,19 +1271,20 @@ function goToToday(){
 }
 // Sul telefono l'app resta aperta anche per giorni: quando si torna a guardarla si ricalcola "oggi".
 // Se nel frattempo è iniziato un nuovo giro del piano, i dati si ricaricano e applyState azzera i progressi.
-// Torna true se è cambiato il giro (i dati azzerati vanno poi salvati: ci pensa syncWithCloud).
+// Torna true se ci sono dati cambiati da salvare (nuovo giro, o quello in casa consumato): ci pensa syncWithCloud.
 function refreshToday(){
   const t = computeTodayIndex();
   if(JSON.stringify(t) === JSON.stringify(todayIdx)) return false;
-  const wasOnToday = todayIdx && currentWeek === todayIdx.week && currentDay === todayIdx.dayIdx;
   const prevCycle = currentCycle;
   todayIdx = t;
   currentCycle = t ? t.cycle : 0;
   const local = currentUser && currentCycle !== prevCycle && readJSON(localKey());
-  if(local) applyState(local);
-  if(wasOnToday) goToToday();
+  let consumed = false;
+  if(local) applyState(local); // consuma anche quello che c'è in casa
+  else if(currentUser && consumeHomeStock(currentCycle)){ consumed = true; autoSavePending = true; }
+  goToToday(); // è cambiato giorno: l'app si riapre su oggi
   refreshUI();
-  return !!local;
+  return !!local || consumed;
 }
 
 let currentTab = 'piano';
@@ -1268,6 +1294,7 @@ const weekCompleted = [false,false,false,false];
 const shopCheckedState = {}; // key -> bool
 let extraItems = [[],[],[],[]]; // articoli extra per settimana, non legati al piano alimentare
 let products = {}; // correzioni dell'utente su reparto e conservazione, per nome prodotto (minuscolo)
+let homeStock = {}; // quello che c'è in casa, per nome prodotto (minuscolo): vedi la sezione IN CASA
 let appTitle = 'Il mio Piano Alimentare';
 let appSubtitle = 'Tocca per personalizzare';
 
@@ -1301,7 +1328,7 @@ function localKey(){ return `piano_utente_${currentUser.id}`; }
 function readJSON(key){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
 function writeJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
 function currentState(){
-  return { planData, weekCompleted, shopCheckedState, extraItems, products, appTitle, appSubtitle, profile, cycle: currentCycle, dataVersion: DATA_VERSION };
+  return { planData, weekCompleted, shopCheckedState, extraItems, products, homeStock, appTitle, appSubtitle, profile, cycle: currentCycle, dataVersion: DATA_VERSION };
 }
 
 // Ogni modifica: subito sul telefono, un attimo dopo su Supabase
@@ -1386,6 +1413,7 @@ function applyState(saved){
   Object.keys(shopCheckedState).forEach(k => delete shopCheckedState[k]);
   extraItems = [[],[],[],[]];
   products = {};
+  homeStock = {};
   appTitle = DEFAULT_TITLE;
   appSubtitle = DEFAULT_SUBTITLE;
   const prevStart = profile.startDate;
@@ -1407,13 +1435,16 @@ function applyState(saved){
   if(typeof saved.appSubtitle === 'string') appSubtitle = saved.appSubtitle;
   if(saved.profile && typeof saved.profile === 'object') profile = { ...defaultProfile(), ...saved.profile };
   if(saved.products && typeof saved.products === 'object') products = saved.products;
+  if(saved.homeStock && typeof saved.homeStock === 'object') homeStock = saved.homeStock;
   applyProfile(prevStart);
   migrateExtraChecks();
   let needsSave = false;
   if(!(saved.dataVersion >= DATA_VERSION)){ migrateToV2(); needsSave = true; }
   if(migrateOldChecks()) needsSave = true;
-  // Nuovo giro del piano: azzera settimane completate e spunte della spesa
   const savedCycle = typeof saved.cycle === 'number' ? saved.cycle : 0;
+  // Quello che c'è in casa si consuma coi giorni passati dall'ultima volta (le spunte sono ancora quelle del giro salvato)
+  if(consumeHomeStock(savedCycle)) needsSave = true;
+  // Nuovo giro del piano: azzera settimane completate e spunte della spesa
   if(savedCycle !== currentCycle){
     resetProgress(savedCycle < currentCycle ? (currentCycle - savedCycle) * planData.length : Infinity);
     needsSave = true;
@@ -1916,8 +1947,8 @@ function cleanQty(q){
   return `${numIt(p.max)} ${u}`;
 }
 // Totali per la spesa: grammi con kg e ml con litri; per gli intervalli conta il massimo
+const BASE_UNITS = { kg: ['g', 1000], l: ['ml', 1000] };
 function qtyTotals(qtys){
-  const base = { kg: ['g', 1000], l: ['ml', 1000] };
   const totals = {}, other = {};
   let qb = 0;
   qtys.forEach(q => {
@@ -1925,10 +1956,18 @@ function qtyTotals(qtys){
     if(!c || c === 'q.b.' || c === '-'){ qb++; return; }
     const p = parseQty(c);
     if(!p){ const t = c.charAt(0).toLowerCase() + c.slice(1); other[t] = (other[t] || 0) + 1; return; } // "Porzione libera" → "porzione libera" dentro la somma
-    const [unit, mult] = base[p.unit] || [p.unit, 1];
+    const [unit, mult] = BASE_UNITS[p.unit] || [p.unit, 1];
     totals[unit] = (totals[unit] || 0) + p.max * mult;
   });
   return { totals, other, qb };
+}
+// Una quantità in unità base (g, ml, pz…): "1,5 kg" → { n: 1500, unit: 'g' } · "q.b." o testo libero → null
+function baseQty(q){
+  const c = cleanQty(q);
+  const p = c && c !== 'q.b.' ? parseQty(c) : null;
+  if(!p) return null;
+  const [unit, mult] = BASE_UNITS[p.unit] || [p.unit, 1];
+  return { n: p.max * mult, unit };
 }
 function sumQty(qtys){
   const { totals, other, qb } = qtyTotals(qtys);
@@ -2107,12 +2146,257 @@ function shoppingLists(){
   }
   return [{ id: 'week', title: planData[w].name, sub: range(0, 6), items: collectItems(daysOf(w, 0, 6), null), shareTitle: `Spesa ${planData[w].name} (${range(0, 6)})`, withExtras: true }];
 }
-// Una voce è presa quando sono prese tutte le sue "volte"; se solo alcune, è presa in parte
+// Una voce è a posto quando ogni sua "volta" è comprata o coperta da quello che c'è in casa; se solo alcune, è presa in parte
+function remainingQtys(it){
+  const out = [];
+  it.entries.forEach(e => {
+    const c = shopCheckedState[e.ek] ? 'all' : homeCover[e.ek];
+    if(c === 'all') return;
+    if(c){ const q = baseQty(e.qty); out.push(`${numIt(q.n - c)} ${q.unit}`); return; } // coperta in parte: resta il resto
+    out.push(e.qty);
+  });
+  return out;
+}
+// Quanto di una voce viene da casa
+function homeQtys(it){
+  return it.entries.filter(e => !shopCheckedState[e.ek] && homeCover[e.ek])
+    .map(e => homeCover[e.ek] === 'all' ? e.qty : `${numIt(homeCover[e.ek])} ${baseQty(e.qty).unit}`);
+}
 function itemStatus(it){
   const bought = it.entries.filter(e => shopCheckedState[e.ek]);
-  return { bought, done: bought.length === it.entries.length, partial: bought.length > 0 && bought.length < it.entries.length };
+  const home = homeQtys(it);
+  const done = remainingQtys(it).length === 0;
+  return { bought, home, done, partial: !done && (bought.length > 0 || home.length > 0) };
 }
-function remainingQtys(it){ return it.entries.filter(e => !shopCheckedState[e.ek]).map(e => e.qty); }
+
+// ---------- IN CASA: avanzi e cose che hai già. Si tolgono dalla spesa e si consumano da sole seguendo il piano ----------
+// homeStock[chiave] = { name, amount, unit, at, since }: amount in unità base (g, ml, pz…), null = "ce l'ho" senza contarlo;
+// at = giorno da cui il piano non l'ha ancora consumato · since = da quando c'è (per avvisare sui freschi)
+let homeCover = {};   // volta (ek) → 'all' se la copre tutta quello che c'è in casa, altrimenti la quantità coperta
+let homeOpen = readJSON('piano_spesa_casa') === true;
+const stockUndo = {}; // voce della lista → com'era "in casa" prima della spunta (togliendo la spunta si torna lì)
+
+function todayISO(){ return toISODate(now_date()); }
+function stockText(s){ return s.amount == null ? 'ce l\'hai' : sumQty([`${numIt(s.amount)} ${s.unit}`]); }
+
+// Giorno del piano di una data, con la settimana contata dal giro baseCycle (può venire negativa o oltre la 4)
+function slotOfDate(date, baseCycle){
+  const diff = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - START_DATE) / 86400000);
+  if(diff < 0) return null;
+  return { w: Math.floor(diff / 7) - baseCycle * planData.length, d: diff % 7 };
+}
+// Le volte in cui il piano usa un prodotto in quel giorno
+function plannedOn(slot, key){
+  const n = planData.length, day = planData[((slot.w % n) + n) % n].days[slot.d];
+  const out = [];
+  MEAL_TYPES.forEach(m => day.meals[m].forEach(it => {
+    if(it.buy !== false && cleanName(it.name).toLowerCase() === key) out.push({ ek: `${slot.w}|${slot.d}|${m}|${key}`, qty: it.qty || 'q.b.' });
+  }));
+  return out;
+}
+// Col passare dei giorni il piano "mangia" quello che c'è in casa: lo consumano le volte non comprate a parte.
+// baseCycle = il giro a cui si riferiscono le spunte. Torna true se ha cambiato qualcosa.
+function consumeHomeStock(baseCycle){
+  const today = parseISODate(todayISO());
+  let changed = false;
+  Object.entries(homeStock).forEach(([key, s]) => {
+    const from = parseISODate(s.at);
+    if(!(from < today)) return;
+    if(s.amount != null){
+      let used = 0;
+      for(let d = from, i = 0; d < today && i < 120; d.setDate(d.getDate() + 1), i++){
+        const slot = slotOfDate(d, baseCycle);
+        if(slot) plannedOn(slot, key).forEach(e => {
+          if(shopCheckedState[e.ek]) return;
+          const q = baseQty(e.qty);
+          if(q && q.unit === s.unit) used += q.n;
+        });
+      }
+      s.amount = Math.max(0, s.amount - used);
+    }
+    s.at = toISODate(today);
+    changed = true;
+    if(s.amount != null && s.amount <= 1e-9) delete homeStock[key];
+  });
+  return changed;
+}
+// Da oggi in avanti, quello che c'è in casa copre le volte non ancora comprate, in ordine di data
+function computeHomeCover(){
+  homeCover = {};
+  if(!todayIdx || !Object.keys(homeStock).length) return;
+  const slots = [];
+  for(let i = 0; i < PLAN_DAYS * 2; i++){ const n = todayIdx.dayIdx + i; slots.push({ w: todayIdx.week + Math.floor(n / 7), d: n % 7 }); }
+  collectItems(slots, null).forEach(it => {
+    const s = homeStock[it.key];
+    if(!s) return;
+    let left = s.amount == null ? Infinity : s.amount;
+    for(const e of it.entries){
+      if(left <= 1e-9) break;
+      if(shopCheckedState[e.ek]) continue;
+      const q = baseQty(e.qty);
+      if(!q || s.amount == null){ homeCover[e.ek] = 'all'; continue; } // q.b. o "ce l'ho": basta averlo
+      if(q.unit !== s.unit) continue;
+      const c = Math.min(q.n, left);
+      homeCover[e.ek] = c >= q.n - 1e-9 ? 'all' : c;
+      left -= c;
+    }
+  });
+}
+function addStock(name, n, unit){
+  const key = name.toLowerCase(), s = homeStock[key], today = todayISO();
+  if(s && s.amount == null) return; // "ce l'ho" senza contarlo: resta così
+  if(s && s.unit === unit){ s.amount += n; s.since = today; return; }
+  homeStock[key] = { name, amount: n, unit, at: today, since: today };
+}
+// Quello che avanza comprando a confezioni: servono 240 g, 1 confezione da 500 g → avanzano 260 g
+function packLeftover(name, qtys){
+  const pack = packOf(name);
+  const need = pack && qtyTotals(qtys).totals[pack.unit];
+  if(!need) return null;
+  const extra = Math.ceil(need / pack.size - 1e-9) * pack.size - need;
+  return extra > 1e-9 ? { n: extra, unit: pack.unit } : null;
+}
+// Spunta di una voce: prende quello che manca (le volte coperte da casa restano a casa) e,
+// se si compra a confezioni, quello che avanza va in casa. Togliendo la spunta si torna com'era.
+function toggleBought(shopKey, it){
+  const st = itemStatus(it);
+  if(st.done){
+    if(!st.bought.length) return showToast('Ce l\'hai già in casa: per cambiarlo apri 🏠 In casa');
+    it.entries.forEach(en => { delete shopCheckedState[en.ek]; });
+    if(shopKey in stockUndo){
+      if(stockUndo[shopKey]) homeStock[it.key] = stockUndo[shopKey]; else delete homeStock[it.key];
+      delete stockUndo[shopKey];
+    }
+    saveState();
+    renderShopping();
+    return;
+  }
+  stockUndo[shopKey] = homeStock[it.key] ? { ...homeStock[it.key] } : null;
+  const toBuy = remainingQtys(it);
+  let used = 0;
+  it.entries.forEach(en => {
+    if(shopCheckedState[en.ek] || homeCover[en.ek] === 'all') return;
+    if(homeCover[en.ek]) used += homeCover[en.ek]; // la parte che c'era in casa si usa adesso
+    shopCheckedState[en.ek] = true;
+  });
+  const s = homeStock[it.key];
+  if(s && s.amount != null && used){ s.amount -= used; if(s.amount <= 1e-9) delete homeStock[it.key]; }
+  const extra = packLeftover(it.name, toBuy);
+  if(extra) addStock(it.name, extra.n, extra.unit);
+  saveState();
+  renderShopping();
+  if(extra) showToast(`Avanzano ${sumQty([`${numIt(extra.n)} ${extra.unit}`])}: li metto in 🏠 In casa`);
+}
+
+// Tendina in cima alla Lista spesa
+function homeBoxHTML(){
+  const items = Object.entries(homeStock).sort((a, b) => a[1].name.localeCompare(b[1].name, 'it'));
+  const today = parseISODate(todayISO());
+  const rows = items.map(([key, s]) => {
+    const days = Math.round((today - parseISODate(s.since || s.at)) / 86400000);
+    const old = productInfo(s.name).durata === 'fresco' && days >= 3;
+    return `
+      <div class="shop-item home-item" data-home-key="${escapeHtml(key)}">
+        <div class="shop-text">
+          <div class="shop-name">${escapeHtml(s.name)} — <span class="shop-qty">${escapeHtml(stockText(s))}</span></div>
+          ${old ? `<div class="shop-meta home-old">in casa da ${days} giorni: è ancora buono?</div>` : ''}
+        </div>
+        <div class="ing-more" role="button" aria-label="Modifica">⋯</div>
+      </div>`;
+  }).join('');
+  return `
+    <details class="home-box" id="homeBox"${homeOpen ? ' open' : ''}>
+      <summary>🏠 In casa${items.length ? ` · ${items.length} ${items.length === 1 ? 'prodotto' : 'prodotti'}` : ''}</summary>
+      <div class="sheet-hint">Quello che hai già viene tolto dalla spesa e si consuma da solo, giorno per giorno, seguendo il piano.</div>
+      ${rows || '<div class="shop-empty">Niente per ora.</div>'}
+      <div class="ing-add" data-home-add>+ Aggiungi quello che hai in casa</div>
+    </details>`;
+}
+// Tutti i prodotti del piano (in ordine alfabetico): tra questi si sceglie cosa c'è in casa
+function planProducts(){
+  const slots = [];
+  planData.forEach((w, i) => slots.push(...daysOf(i, 0, 6)));
+  return collectItems(slots, null);
+}
+// Scheda "In casa": il prodotto si sceglie dal menu, niente nomi scritti a mano, così combacia sempre con la spesa
+function openHomeEditor(key, presetKey){
+  const s = key ? homeStock[key] : null;
+  const all = planProducts();
+  if(!s && !all.length) return showAlert('Prima metti qualche ingrediente nel piano: in casa si segnano i prodotti del piano.');
+  infoSheet.innerHTML = `
+    <h4>${s ? escapeHtml(s.name) : 'Aggiungi in casa'}</h4>
+    <div class="sheet-sub">${s ? 'Quanto ne hai adesso?' : 'Scegli un prodotto del piano e quanto ne hai.'}</div>
+    ${s ? '' : `<label class="edit-label">Prodotto<select class="profile-input" id="homeProd">
+      <option value="" disabled${presetKey ? '' : ' selected'}>Scegli…</option>
+      ${all.map(it => `<option value="${escapeHtml(it.key)}"${it.key === presetKey ? ' selected' : ''}>${escapeHtml(it.name)}</option>`).join('')}
+    </select></label>`}
+    <div class="edit-label">Quanto ne hai
+      <div class="pack-row home-amount"><input class="profile-input pack-size" id="homeAmt" type="number" inputmode="decimal" min="0" step="any" placeholder="?"><select class="profile-input pack-unit" id="homeUnit"></select></div>
+    </div>
+    <div class="toggle-row home-count" id="homeNoCount" role="switch">
+      <span>Non lo conto <small>ce l'ho e basta (olio, spezie…): non va nella spesa finché non è finito</small></span>
+      <span class="switch"><span class="knob"></span></span>
+    </div>
+    <div class="profile-msg" id="homeMsg"></div>
+    <div class="sheet-close edit-save" id="homeSave">Salva</div>
+    ${s ? '<div class="sheet-action danger" id="homeDel">🗑 Finito, non ce l\'ho più</div>' : ''}
+    <div class="sheet-cancel" id="homeCancel">Annulla</div>`;
+  infoOverlay.classList.remove('hidden');
+  const prodSel = document.getElementById('homeProd'), amt = document.getElementById('homeAmt');
+  const unitSel = document.getElementById('homeUnit'), noCount = document.getElementById('homeNoCount');
+  const msg = t => { document.getElementById('homeMsg').textContent = t; };
+  const chosen = () => s ? key : prodSel.value;
+  let noCountOn = false;
+  const paint = () => {
+    noCount.querySelector('.switch').classList.toggle('on', noCountOn);
+    noCount.setAttribute('aria-checked', String(noCountOn));
+    amt.disabled = unitSel.disabled = noCountOn;
+    amt.closest('.edit-label').style.opacity = noCountOn ? 0.4 : 1;
+  };
+  // Unità proposte: quelle con cui il prodotto compare nel piano (così si può togliere dalla spesa)
+  const fill = () => {
+    const k = chosen();
+    const it = all.find(x => x.key === k), cur = homeStock[k];
+    const base = it ? Object.keys(qtyTotals(it.entries.map(e => e.qty)).totals)[0] : null;
+    const units = base === 'g' ? ['g', 'kg'] : base === 'ml' ? ['ml', 'l'] : base ? [base] : ['pz', 'g', 'ml'];
+    if(cur && cur.unit && !units.includes(cur.unit)) units.unshift(cur.unit);
+    unitSel.innerHTML = units.map(u => `<option value="${u}">${unitLabel(u, 2)}</option>`).join('');
+    amt.value = cur && cur.amount != null ? String(Math.round(cur.amount * 10) / 10) : '';
+    if(cur && cur.amount != null) unitSel.value = cur.unit;
+    noCountOn = cur ? cur.amount == null : !!k && !base; // nel piano solo "q.b.": di solito si ha e basta
+    paint();
+  };
+  fill();
+  if(prodSel) prodSel.addEventListener('change', () => { msg(''); fill(); });
+  noCount.addEventListener('click', () => { noCountOn = !noCountOn; paint(); });
+  document.getElementById('homeCancel').addEventListener('click', hideInfoSheet);
+  document.getElementById('homeSave').addEventListener('click', () => {
+    const k = chosen();
+    if(!k) return msg('Scegli il prodotto.');
+    const prev = homeStock[k];
+    const name = s ? s.name : all.find(x => x.key === k).name;
+    const today = todayISO();
+    if(noCountOn){
+      homeStock[k] = { name, amount: null, unit: null, at: today, since: (prev && prev.since) || today };
+    } else {
+      let n = toNum(amt.value), unit = unitSel.value;
+      if(!(n > 0)) return msg(s ? 'Scrivi quanto ne hai, oppure premi "Finito".' : 'Scrivi quanto ne hai.');
+      if(BASE_UNITS[unit]){ n *= BASE_UNITS[unit][1]; unit = BASE_UNITS[unit][0]; }
+      const more = !prev || prev.amount == null || n > prev.amount;
+      homeStock[k] = { name, amount: n, unit, at: today, since: more ? today : (prev.since || today) };
+    }
+    saveState();
+    hideInfoSheet();
+    renderShopping();
+  });
+  if(s) document.getElementById('homeDel').addEventListener('click', () => {
+    delete homeStock[key];
+    saveState();
+    hideInfoSheet();
+    renderShopping();
+    showToast(`Finito: ${s.name}`, 'Annulla', () => { homeStock[key] = s; saveState(); if(currentTab === 'spesa') renderShopping(); });
+  });
+}
 
 // Spunte della versione di prima ("settimana::prodotto") → spunte sulle singole volte di quella settimana
 function migrateOldChecks(){
@@ -2129,6 +2413,7 @@ function migrateOldChecks(){
 }
 
 function renderShopping(){
+  computeHomeCover();
   const lists = shoppingLists();
   shopIndex = {};
   const desc = {
@@ -2138,7 +2423,7 @@ function renderShopping(){
       : 'Solo i prodotti freschi, divisi in due spese per non comprarli troppo presto. Nella prima ci sono anche quelli che durano una settimana (yogurt, uova, frutta…).',
     dispensa: 'Prodotti a lunga conservazione (pasta, riso, olio, legumi…): si comprano una volta sola per più settimane.'
   }[shopMode];
-  let html = `<div class="shop-modes">${[['fresca', 'Fresca'], ['settimana', 'Settimana'], ['dispensa', 'Dispensa']]
+  let html = homeBoxHTML() + `<div class="shop-modes">${[['fresca', 'Fresca'], ['settimana', 'Settimana'], ['dispensa', 'Dispensa']]
     .map(([k, l]) => `<div class="shop-mode${shopMode === k ? ' active' : ''}" data-shop-mode="${k}">${l}</div>`).join('')}</div>`;
   html += `<div class="shop-desc">${desc}</div>`;
   if(shopMode === 'fresca'){
@@ -2171,6 +2456,7 @@ function renderShopping(){
   }
   mainContent.innerHTML = html;
   attachExtraItemHandlers();
+  document.getElementById('homeBox').addEventListener('toggle', (e) => { homeOpen = e.target.open; writeJSON('piano_spesa_casa', homeOpen); });
 }
 
 function shopListHTML(list){
@@ -2190,14 +2476,19 @@ function shopListHTML(list){
       const st = itemStatus(it);
       const total = sumQty(it.entries.map(e => e.qty));
       const n = it.entries.length;
-      const meta = st.partial
-        ? `già presi ${escapeHtml(sumQty(st.bought.map(e => e.qty)))} su ${escapeHtml(total)}`
+      const unCounted = st.home.length && homeStock[it.key] && homeStock[it.key].amount == null;
+      const got = [];
+      if(st.bought.length) got.push(`già presi ${sumQty(st.bought.map(e => e.qty))}`);
+      if(st.home.length && !unCounted) got.push(`🏠 in casa ${sumQty(st.home)}`);
+      const meta = unCounted ? '🏠 ce l\'hai in casa'
+        : got.length ? `${escapeHtml(got.join(' · '))} su ${escapeHtml(total)}`
         : `${n === 1 ? '1 volta' : n + ' volte'} · si conserva: ${escapeHtml(durataLabel(it.info.durata).toLowerCase())}`;
+      const fromHome = st.done && !st.bought.length;
       html += `
         <div class="shop-item ${st.done ? 'done' : ''}${st.partial ? ' partial' : ''}" data-check="${escapeHtml(key)}">
-          <div class="shop-check ${st.done ? 'checked' : ''}${st.partial ? ' half' : ''}" data-action="toggle">${st.done ? '✓' : st.partial ? '–' : ''}</div>
+          <div class="shop-check ${st.done ? 'checked' : ''}${st.partial ? ' half' : ''}" data-action="toggle">${st.done ? (fromHome ? '🏠' : '✓') : st.partial ? '–' : ''}</div>
           <div class="shop-text" data-action="toggle">
-            <div class="shop-name">${escapeHtml(it.name)} — <span class="shop-qty">${escapeHtml(shopQtyText(it.name, st.partial ? remainingQtys(it) : it.entries.map(e => e.qty)))}</span></div>
+            <div class="shop-name">${escapeHtml(it.name)} — <span class="shop-qty">${escapeHtml(st.done ? total : shopQtyText(it.name, st.partial ? remainingQtys(it) : it.entries.map(e => e.qty)))}</span></div>
             <div class="shop-meta">${meta}</div>
           </div>
           <div class="info-btn" data-action="info">ⓘ</div>
@@ -2249,6 +2540,7 @@ function showShopInfo(item){
   const packOwn = !!products[item.name.toLowerCase()] && 'pack' in products[item.name.toLowerCase()];
   const packEst = packText(item.name, allQ);
   const packUnit = pack ? pack.unit : (Object.keys(qtyTotals(allQ).totals)[0] || 'pz');
+  const hs = homeStock[item.key];
   const rows = item.entries.map(en => {
     const on = !!shopCheckedState[en.ek];
     return `
@@ -2256,7 +2548,7 @@ function showShopInfo(item){
       <div class="shop-check ${on ? 'checked' : ''}">${on ? '✓' : ''}</div>
       <div class="entry-text">
         <div class="sheet-day">${escapeHtml(en.day)}</div>
-        <div class="sheet-meal">${escapeHtml(en.meal)}</div>
+        <div class="sheet-meal">${escapeHtml(en.meal)}${homeCover[en.ek] ? ' · 🏠 da casa' : ''}</div>
       </div>
       <div class="sheet-qty">${escapeHtml(en.qty)}</div>
     </div>`;
@@ -2265,6 +2557,7 @@ function showShopInfo(item){
   infoSheet.innerHTML = `
     <h4>${escapeHtml(item.name)}</h4>
     <div class="sheet-sub">Totale ${escapeHtml(sumQty(allQ))}${st.bought.length ? ` · già presi ${escapeHtml(sumQty(st.bought.map(e => e.qty)))}` : ''}</div>
+    <div class="home-line" data-home-open role="button">🏠 In casa: <b>${hs ? escapeHtml(stockText(hs)) : 'niente'}</b><span class="home-edit">${hs ? 'Modifica' : 'Aggiungi'}</span></div>
     <h5>Reparto</h5>
     <div class="chip-row">${REPARTI.map(([k, emoji, label]) => `<div class="chip${info.reparto === k ? ' active' : ''}" data-set-reparto="${k}">${emoji} ${label}</div>`).join('')}</div>
     <h5>Si conserva</h5>
@@ -2288,6 +2581,7 @@ function showShopInfo(item){
   infoOverlay.classList.remove('hidden');
   document.getElementById('sheetCloseBtn').addEventListener('click', hideInfoSheet);
   infoSheet.querySelector('#shopDays').addEventListener('toggle', (e) => { shopInfoDaysOpen = e.target.open; });
+  infoSheet.querySelector('[data-home-open]').addEventListener('click', () => openHomeEditor(hs ? item.key : null, item.key));
   const refresh = () => { saveState(); item.info = productInfo(item.name); renderShopping(); showShopInfo(item); };
   infoSheet.querySelectorAll('[data-ek]').forEach(row => row.addEventListener('click', () => {
     const ek = row.getAttribute('data-ek');
@@ -2340,18 +2634,14 @@ mainContent.addEventListener('click', (e) => {
     if(text) shareText(text); else showToast('Hai già spuntato tutto 👍');
     return;
   }
+  if(e.target.closest('[data-home-add]')){ openHomeEditor(null); return; }
+  const homeRow = e.target.closest('[data-home-key]');
+  if(homeRow){ openHomeEditor(homeRow.dataset.homeKey); return; }
   const row = e.target.closest('.shop-item[data-check]');
   if(!row) return;
   const key = row.getAttribute('data-check');
   if(e.target.closest('[data-action="info"]')){ if(shopIndex[key]) showShopInfo(shopIndex[key]); return; }
-  if(e.target.closest('[data-action="toggle"]')){
-    const it = shopIndex[key];
-    if(!it) return;
-    const done = itemStatus(it).done; // tutta presa → la tolgo; altrimenti prendo quello che manca
-    it.entries.forEach(en => { if(done) delete shopCheckedState[en.ek]; else shopCheckedState[en.ek] = true; });
-    saveState();
-    renderShopping();
-  }
+  if(e.target.closest('[data-action="toggle"]') && shopIndex[key]) toggleBought(key, shopIndex[key]);
 });
 
 function attachExtraItemHandlers(){
