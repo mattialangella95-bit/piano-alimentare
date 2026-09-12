@@ -566,6 +566,18 @@
     font-size:var(--fs-sm); font-weight:700; text-align:center;
     cursor:pointer;
   }
+  /* ⇄ alternativa di un ingrediente: sotto il nome, tocca per scambiare */
+  .alt-chip{
+    display:block; width:max-content; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    margin-top:3px; padding:2px 8px;
+    border-radius:10px;
+    background:var(--tint); border:1px solid var(--tint-line);
+    color:var(--forest);
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-sm); font-weight:700; font-style:normal;
+    cursor:pointer;
+  }
   .meal-card.closed{ padding:10px 16px; }
   .meal-card.closed .meal-header-row{ margin-bottom:0; }
   .meal-card.closed .meal-label{ cursor:pointer; color:var(--muted); }
@@ -1674,7 +1686,8 @@ function renderClipBanner(){
 clipClearBtn.addEventListener('click', clearClipboard);
 
 function copyIngredient(item){
-  setClipboard({ type:'ingredient', label: `${item.name || '(vuoto)'} — ${item.qty || 'q.b.'}`, item: JSON.parse(JSON.stringify(item)) });
+  const a = activeOf(item);
+  setClipboard({ type:'ingredient', label: `${a.name || '(vuoto)'} — ${a.qty || 'q.b.'}`, item: JSON.parse(JSON.stringify(item)) });
 }
 function pasteIngredientInto(weekIdx, dayIdx, mealType){
   if(!clipboard || clipboard.type !== 'ingredient') return;
@@ -1775,11 +1788,13 @@ function renderDayStrip(){
 // ---------- PIANO: editable ingredient rows ----------
 function ingredientRowHTML(weekIdx, dayIdx, mealType, idx, item){
   const nobuy = item.buy === false ? ' ing-nobuy' : '';
+  const a = activeOf(item);
+  const other = item.alt ? (item.useAlt ? item : item.alt) : null; // l'altra scelta, da mostrare nel ⇄
   return `
     <div class="ing-row${nobuy}" data-week="${weekIdx}" data-day="${dayIdx}" data-meal="${mealType}" data-idx="${idx}">
-      <div class="ing-name">${escapeHtml(item.name)}</div>
+      <div class="ing-name">${escapeHtml(a.name)}${other ? `<span class="alt-chip" data-action="swapAlt" role="button" aria-label="Usa ${escapeHtml(other.name)}">⇄ ${escapeHtml(other.name)}</span>` : ''}</div>
       ${item.buy === false ? '<div class="nobuy-tag" title="Non va nella lista spesa">no spesa</div>' : ''}
-      <div class="ing-qty">${escapeHtml(item.qty)}</div>
+      <div class="ing-qty">${escapeHtml(a.qty)}</div>
       <div class="ing-more" data-action="more" role="button" aria-label="Altre azioni">⋯</div>
     </div>`;
 }
@@ -1867,6 +1882,14 @@ function setupMainContentDelegation(){
       return;
     }
 
+    const swap = e.target.closest('[data-action="swapAlt"]'); // ⇄: scambia ingrediente e alternativa
+    if(swap){
+      const ref = rowRef(swap.closest('.ing-row'));
+      const it = planData[ref.w].days[ref.d].meals[ref.m][ref.idx];
+      if(it && it.alt){ it.useAlt = !it.useAlt; saveState(); renderMain(); }
+      return;
+    }
+
     const toggleMeal = e.target.closest('[data-action="toggleMeal"]');
     if(toggleMeal){ toggleMealClosed(toggleMeal.getAttribute('data-meal')); return; }
 
@@ -1936,13 +1959,15 @@ function rowRef(row){
 function purgeEmptyRows(){
   let removed = false;
   planData.forEach(w => w.days.forEach(d => MEAL_TYPES.forEach(m => {
-    const kept = d.meals[m].filter(it => (it.name || '').trim() || (it.qty || '').trim());
+    const kept = d.meals[m].filter(it => !isEmptyItem(it));
     if(kept.length !== d.meals[m].length){ d.meals[m] = kept; removed = true; }
   })));
   if(removed) saveState();
 }
 // Un ingrediente con l'alternativa scelta al posto dell'originale (solo da leggere, non ci si scrive sopra)
 function activeOf(item){ return item.useAlt && item.alt ? { ...item, name: item.alt.name, qty: item.alt.qty } : item; }
+// Una riga è vuota solo se non ha niente, neanche l'alternativa
+function isEmptyItem(it){ return ![it.name, it.qty, it.alt && it.alt.name, it.alt && it.alt.qty].some(v => String(v || '').trim()); }
 
 // ---------- PASTI A TENDINA: chiusi per quel giorno (solo su questo telefono), finiscono in fondo alla giornata ----------
 let mealsClosed = readJSON('piano_pasti_chiusi') || {};
@@ -2180,8 +2205,9 @@ function collectItems(slots, durate){
   slots.forEach(({ w, d }) => {
     const day = planData[w % planData.length].days[d];
     const date = dateForDay(w, d);
-    MEAL_TYPES.forEach(mealType => day.meals[mealType].forEach(item => {
-      if(item.buy === false) return;
+    MEAL_TYPES.forEach(mealType => day.meals[mealType].forEach(raw => {
+      if(raw.buy === false) return;
+      const item = activeOf(raw); // con l'alternativa scelta, la spesa segue quella
       const name = cleanName(item.name);
       if(!name) return;
       const info = productInfo(name);
@@ -2854,19 +2880,24 @@ function attachExtraItemHandlers(){
 }
 
 // Scheda di modifica (nome + quantità): i campi si aprono solo qui, mai toccando per sbaglio una riga
-function editSheetHTML(title, sub, name, qty, saveLabel, actions){
+function editSheetHTML(title, sub, name, qty, saveLabel, actions, extraFields = ''){
   return `
     <h4>${escapeHtml(title)}</h4>
     ${sub ? `<div class="sheet-sub">${escapeHtml(sub)}</div>` : ''}
     <label class="edit-label">Nome<input class="profile-input" id="editName" type="text" value="${escapeHtml(name)}" placeholder="es. Petto di pollo" autocomplete="off"></label>
     <label class="edit-label">Quantità<input class="profile-input" id="editQty" type="text" value="${escapeHtml(qty)}" placeholder="es. 150 g · 2 pz · q.b." autocomplete="off"></label>
+    ${extraFields}
     <div class="sheet-close edit-save" id="editSaveBtn">${escapeHtml(saveLabel)}</div>
     ${actions}
     <div class="sheet-cancel" id="editCancelBtn">Annulla</div>`;
 }
 function wireEditSheet(onSave, focusName){
   const nameIn = document.getElementById('editName'), qtyIn = document.getElementById('editQty');
-  const save = () => onSave(cleanName(nameIn.value), cleanQty(qtyIn.value));
+  const altNameIn = document.getElementById('editAltName'), altQtyIn = document.getElementById('editAltQty'); // solo negli ingredienti
+  const save = () => onSave(cleanName(nameIn.value), cleanQty(qtyIn.value),
+    altNameIn ? cleanName(altNameIn.value) : '', altQtyIn ? cleanQty(altQtyIn.value) : '');
+  if(altNameIn) altNameIn.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); altQtyIn.focus(); } });
+  if(altQtyIn) altQtyIn.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); save(); } });
   document.getElementById('editSaveBtn').addEventListener('click', save);
   document.getElementById('editCancelBtn').addEventListener('click', hideInfoSheet);
   nameIn.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); qtyIn.focus(); } });
@@ -2885,15 +2916,27 @@ function openIngredientEditor(ref){
     <div class="sheet-action" data-menu="copy">⧉ Copia</div>
     <div class="sheet-action" data-menu="buy">${item.buy === false ? '🛒 Rimettilo nella lista spesa' : '🚫 Non metterlo nella spesa (ce l\'ho sempre)'}</div>
     <div class="sheet-action danger" data-menu="delete">🗑 Elimina</div>`;
+  // Alternativa facoltativa (es. tacchino al posto del pollo): nel piano si sceglie con ⇄
+  const altFields = `
+    <details class="days-toggle alt-toggle"${item.alt ? ' open' : ''}>
+      <summary>⇄ Alternativa (facoltativa)</summary>
+      <label class="edit-label">Nome<input class="profile-input" id="editAltName" type="text" value="${escapeHtml(item.alt ? item.alt.name : '')}" placeholder="es. Petto di tacchino" autocomplete="off"></label>
+      <label class="edit-label">Quantità<input class="profile-input" id="editAltQty" type="text" value="${escapeHtml(item.alt ? item.alt.qty : '')}" placeholder="es. 150 g" autocomplete="off"></label>
+      <div class="sheet-hint">Nel piano tocchi ⇄ per scegliere quale mangi: la spesa segue la scelta.</div>
+    </details>`;
   infoSheet.innerHTML = editSheetHTML(isNew ? 'Nuovo ingrediente' : 'Modifica ingrediente',
-    `${MEAL_LABELS[ref.m]} · ${planData[ref.w].days[ref.d].name}`, item.name, item.qty, isNew ? 'Aggiungi' : 'Salva', actions);
-  wireEditSheet((name, qty) => {
+    `${MEAL_LABELS[ref.m]} · ${planData[ref.w].days[ref.d].name}`, item.name, item.qty, isNew ? 'Aggiungi' : 'Salva', actions, altFields);
+  wireEditSheet((name, qty, altName, altQty) => {
+    let alt = altName || altQty ? { name: altName, qty: altQty } : null;
+    if(!name && !qty && alt){ name = alt.name; qty = alt.qty; alt = null; } // c'è solo l'alternativa: diventa l'ingrediente
+    if(alt && alt.name.toLowerCase() === name.toLowerCase() && alt.qty === qty) alt = null; // uguale all'ingrediente: non serve
     if(isNew){
-      if(name || qty) list.push({ name, qty, buy: true });
+      if(name || qty) list.push(alt ? { name, qty, buy: true, alt, useAlt: false } : { name, qty, buy: true });
     } else if(!name && !qty){
       list.splice(ref.idx, 1);
     } else {
       item.name = name; item.qty = qty;
+      if(alt) item.alt = alt; else { delete item.alt; delete item.useAlt; }
     }
     saveState();
     hideInfoSheet();
@@ -2914,7 +2957,7 @@ function deleteIngredient(ref){
   const [removed] = list.splice(ref.idx, 1);
   saveState();
   renderMain();
-  showToast(`Eliminato: ${removed.name || 'ingrediente'}`, 'Annulla', () => {
+  showToast(`Eliminato: ${activeOf(removed).name || 'ingrediente'}`, 'Annulla', () => {
     planData[ref.w].days[ref.d].meals[ref.m].splice(ref.idx, 0, removed);
     saveState();
     if(currentTab === 'piano') renderMain();
@@ -3504,6 +3547,12 @@ document.getElementById('adminBanner').addEventListener('click', () => {
 // ---------- NOVITÀ: cosa è cambiato, mostrato una volta sola per account (profile.newsSeen) ----------
 // A ogni rilascio che cambia qualcosa per chi usa l'app si aggiunge una voce IN CIMA, con un id nuovo (la data).
 const NEWS = [
+  { id: '2026-09-12b', title: 'Altre novità', items: [
+    '⇄ Alternative: nel ⋯ di un ingrediente puoi aggiungere un\'alternativa (es. tacchino al posto del pollo). Nel piano tocchi ⇄ per scegliere, e la spesa segue.',
+    '▾ Nel Piano puoi chiudere a tendina i pasti già fatti: finiscono in fondo alla giornata.',
+    '❄️ In cima al giorno ti ricorda cosa scongelare per domani.',
+    '✓ Nella Lista spesa quello che hai già preso scende in fondo al reparto.',
+  ]},
   { id: '2026-09-12', title: 'Settembre 2026', items: [
     '🏠 Nuova sezione "In casa" in cima alla Lista spesa: segna quello che hai già e viene tolto dalla spesa. Quando lo finisci, toglilo col 🗑.',
     '🛒 Hai preso meno (o più) del previsto? Dopo la spunta tocca "Preso solo in parte?" e scrivi quanto: quello che manca resta in lista.',

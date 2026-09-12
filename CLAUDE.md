@@ -48,12 +48,17 @@ Su Supabase, con RLS: ognuno vede solo le sue righe.
 
 Dentro `dati` c'è quello che restituisce `currentState()`.
 
-1. `planData` 4 settimane × 7 giorni × 6 pasti, ogni ingrediente `{ name, qty, buy }`
+1. `planData` 4 settimane × 7 giorni × 6 pasti, ogni ingrediente `{ name, qty, buy, alt?, useAlt? }`:
+   `alt = { name, qty }` è l'alternativa facoltativa, `useAlt` dice se nel piano si è scelta quella (⇄).
+   Nome e quantità "attivi" si leggono sempre con `activeOf(item)` (righe del piano, spesa, In casa, scongelare)
 2. `shopCheckedState` le spunte della spesa, una per ogni "volta": `settimana|giorno|pasto|prodotto`
 3. `products` le correzioni per prodotto: reparto, conservazione, confezione
 4. `homeStock` quello che c'è in casa, per prodotto
 5. `profile` nome, colori, lunedì di inizio, note
 6. `weekCompleted`, `extraItems`, `appTitle`, `cycle`, `dataVersion`
+
+Solo sul telefono, non nei dati: i pasti chiusi a tendina (`piano_pasti_chiusi`, per data) e le scelte della spesa
+(`piano_spesa_modo`, `piano_spesa_giri`, `piano_spesa_dispensa`, `piano_spesa_casa`).
 
 In locale `piano_utente_<id>` è la copia sul telefono. Ogni modifica va subito lì, e 800 ms
 dopo su Supabase. Si legge prima il locale, poi la nuvola, e vince il più recente.
