@@ -2,3 +2,4 @@
 piano_backup_*.json
 importa_*.sql
 .DS_Store
+*.code-workspace

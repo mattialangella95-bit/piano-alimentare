@@ -26,6 +26,8 @@
     --tint: #e6ecdd;
     --tint-soft: #eef3e8;
     --tint-line: #c9d6bf;
+    /* larghezza della colonna dell'app (più larga col telefono in orizzontale) */
+    --app-w: 480px;
 
     /* scala del testo: 6 misure in tutta l'app */
     --fs-xs: 0.64rem;
@@ -44,7 +46,7 @@
     overscroll-behavior:none;
   }
   #app{
-    max-width:480px;
+    max-width:var(--app-w);
     margin:0 auto;
     min-height:100vh;
     background:var(--cream);
@@ -283,7 +285,7 @@
   .nav-footer{
     position:fixed;
     bottom:0; left:0; right:0;
-    max-width:480px;
+    max-width:var(--app-w);
     margin:0 auto;
     background: linear-gradient(0deg, var(--cream) 60%, rgba(246,242,233,0));
     padding: 22px 20px 18px;
@@ -355,7 +357,6 @@
     font-size:var(--fs-sm);
     letter-spacing:0.03em;
     color:var(--forest);
-    background:var(--cat-bg,#e4ecd f);
     background:var(--tint);
     border-left:4px solid var(--forest);
     padding:7px 10px;
@@ -514,7 +515,7 @@
   }
   .overlay.hidden{ display:none; }
   .sheet{
-    width:100%; max-width:480px;
+    width:100%; max-width:var(--app-w);
     background:var(--paper);
     border-radius:18px 18px 0 0;
     padding:18px 20px 26px;
@@ -817,7 +818,7 @@
   /* NUVOLETTA SEGNALAZIONI: piccola e discreta, in basso a sinistra (lì toccare per sbaglio non fa danni) */
   .fb-fab{
     position:fixed; z-index:25;
-    left:max(14px, calc(50% - 240px + 14px));
+    left:max(14px, calc(50% - var(--app-w) / 2 + 14px));
     bottom:88px;
     width:34px; height:34px; border-radius:50%;
     background:var(--paper);
@@ -1070,6 +1071,37 @@
     margin-top:14px; min-height:1em;
   }
   .auth-msg.ok{ color:var(--forest); }
+
+  /* DETTAGLIO ⓘ: i giorni in cui serve un prodotto stanno in una tendina, chiusa all'inizio */
+  .days-toggle{ margin-top:16px; border-top:1px solid var(--line); }
+  .days-toggle summary{
+    list-style:none;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 0 4px;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); font-weight:700;
+    color:var(--forest);
+    cursor:pointer;
+  }
+  .days-toggle summary::-webkit-details-marker{ display:none; }
+  .days-toggle summary::after{ content:'▾'; transition:transform 0.15s; }
+  .days-toggle[open] summary::after{ transform:rotate(180deg); }
+
+  /* TELEFONO IN ORIZZONTALE: colonna più larga e intestazione che scorre via, così resta spazio per il piano */
+  @media (orientation: landscape) and (max-height: 540px){
+    :root{ --app-w: 760px; }
+    header{ position:static; padding:10px 20px 8px; }
+    .tabs{ margin-top:8px; }
+    .weeks{ margin-top:6px; }
+    .day-strip{ padding-top:10px; }
+    .sheet, .profile-sheet{ max-height:92vh; }
+    .nav-footer{ padding:10px 20px 8px; }
+    .nav-btn{ width:38px; height:38px; }
+    .nav-center{ padding:6px 12px; }
+    .fb-fab{ bottom:60px; }
+    .toast{ bottom:60px; }
+    main{ padding-bottom:70px; }
+  }
 </style>
 </head>
 <body>
@@ -1211,6 +1243,22 @@ function setStartDate(iso){
 function goToToday(){
   if(todayIdx){ currentWeek = todayIdx.week; currentDay = todayIdx.dayIdx; }
   else { currentWeek = 0; currentDay = 0; }
+}
+// Sul telefono l'app resta aperta anche per giorni: quando si torna a guardarla si ricalcola "oggi".
+// Se nel frattempo è iniziato un nuovo giro del piano, i dati si ricaricano e applyState azzera i progressi.
+// Torna true se è cambiato il giro (i dati azzerati vanno poi salvati: ci pensa syncWithCloud).
+function refreshToday(){
+  const t = computeTodayIndex();
+  if(JSON.stringify(t) === JSON.stringify(todayIdx)) return false;
+  const wasOnToday = todayIdx && currentWeek === todayIdx.week && currentDay === todayIdx.dayIdx;
+  const prevCycle = currentCycle;
+  todayIdx = t;
+  currentCycle = t ? t.cycle : 0;
+  const local = currentUser && currentCycle !== prevCycle && readJSON(localKey());
+  if(local) applyState(local);
+  if(wasOnToday) goToToday();
+  refreshUI();
+  return !!local;
 }
 
 let currentTab = 'piano';
@@ -1521,6 +1569,7 @@ function initAuth(){
   document.addEventListener('visibilitychange', () => {
     if(!currentUser) return;
     if(document.visibilityState === 'hidden'){ if(cloudTimer) pushToCloud(); return; }
+    refreshToday();
     const local = readJSON(localKey());
     if(local && local.dirty) pushToCloud(); else syncWithCloud();
   });
@@ -2001,6 +2050,7 @@ let shopMode = ['fresca', 'settimana', 'dispensa'].includes(readJSON('piano_spes
 let pantryWeeks = [2, 4].includes(readJSON('piano_spesa_dispensa')) ? readJSON('piano_spesa_dispensa') : 4;
 let freshTrips = [1, 2].includes(readJSON('piano_spesa_giri')) ? readJSON('piano_spesa_giri') : 2; // spesa fresca in 1 o 2 giri
 let shopIndex = {}; // chiave spunta → voce, per aprire il dettaglio
+let shopInfoDaysOpen = false; // la tendina dei giorni nella ⓘ resta come l'ha lasciata l'utente
 
 const DAY_SHORT = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
 function rangeLabel(a, b){
@@ -2211,10 +2261,10 @@ function showShopInfo(item){
       <div class="sheet-qty">${escapeHtml(en.qty)}</div>
     </div>`;
   }).join('');
+  // Prima reparto, conservazione e confezione; i giorni sotto, in una tendina
   infoSheet.innerHTML = `
     <h4>${escapeHtml(item.name)}</h4>
-    <div class="sheet-sub">Totale ${escapeHtml(sumQty(item.entries.map(e => e.qty)))}${st.bought.length ? ` · già presi ${escapeHtml(sumQty(st.bought.map(e => e.qty)))}` : ''}. Spunta le volte che hai già comprato: vale in tutte le liste.</div>
-    ${rows}
+    <div class="sheet-sub">Totale ${escapeHtml(sumQty(allQ))}${st.bought.length ? ` · già presi ${escapeHtml(sumQty(st.bought.map(e => e.qty)))}` : ''}</div>
     <h5>Reparto</h5>
     <div class="chip-row">${REPARTI.map(([k, emoji, label]) => `<div class="chip${info.reparto === k ? ' active' : ''}" data-set-reparto="${k}">${emoji} ${label}</div>`).join('')}</div>
     <h5>Si conserva</h5>
@@ -2229,9 +2279,15 @@ function showShopInfo(item){
     </div>
     <div class="sheet-hint">${packEst ? `Servono ${escapeHtml(packEst)} per ${escapeHtml(sumQty(allQ))}.` : 'Scrivi quanto contiene una confezione per sapere quante comprarne (lascia vuoto se non si compra a confezioni).'}${pack && !packOwn ? ' È una stima: controllala sulla confezione.' : ''}</div>
     <div class="sheet-hint">Reparto e conservazione valgono ogni volta che compare "${escapeHtml(item.name)}": decidono in quale lista va.</div>
+    <details class="days-toggle" id="shopDays"${shopInfoDaysOpen ? ' open' : ''}>
+      <summary>📅 Quando serve · ${item.entries.length === 1 ? '1 volta' : item.entries.length + ' volte'}</summary>
+      <div class="sheet-hint">Spunta le volte che hai già comprato: vale in tutte le liste.</div>
+      ${rows}
+    </details>
     <div class="sheet-close" id="sheetCloseBtn">Chiudi</div>`;
   infoOverlay.classList.remove('hidden');
   document.getElementById('sheetCloseBtn').addEventListener('click', hideInfoSheet);
+  infoSheet.querySelector('#shopDays').addEventListener('toggle', (e) => { shopInfoDaysOpen = e.target.open; });
   const refresh = () => { saveState(); item.info = productInfo(item.name); renderShopping(); showShopInfo(item); };
   infoSheet.querySelectorAll('[data-ek]').forEach(row => row.addEventListener('click', () => {
     const ek = row.getAttribute('data-ek');
@@ -2491,9 +2547,8 @@ document.getElementById('nextBtn').onclick = () => {
   renderAll();
 };
 document.getElementById('todayBtn').onclick = () => {
-  const t = computeTodayIndex();
-  if(t){ currentWeek = t.week; currentDay = t.dayIdx; }
-  else { currentWeek = 0; currentDay = 0; }
+  if(refreshToday() && currentUser) syncWithCloud();
+  goToToday();
   renderAll();
 };
 
