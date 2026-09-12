@@ -555,6 +555,31 @@
   }
   .meal-header-row .meal-label{ margin:0; flex:1; }
   .meal-actions{ display:flex; gap:6px; flex:0 0 auto; }
+  /* Pasti a tendina: ▾ chiude, ▸ apre; i chiusi vanno in fondo alla giornata */
+  .meal-toggle{
+    flex:0 0 auto;
+    min-width:30px; padding:3px 8px;
+    border-radius:6px;
+    background:var(--tint); border:1px solid var(--tint-line);
+    color:var(--forest);
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-sm); font-weight:700; text-align:center;
+    cursor:pointer;
+  }
+  .meal-card.closed{ padding:10px 16px; }
+  .meal-card.closed .meal-header-row{ margin-bottom:0; }
+  .meal-card.closed .meal-label{ cursor:pointer; color:var(--muted); }
+  .meal-card.closed .meal-label .dot{ background:var(--muted); }
+  .meal-sum{ font-weight:400; letter-spacing:0; margin-left:2px; }
+  /* Promemoria: da scongelare per domani */
+  .defrost-note{
+    margin:0 0 12px;
+    padding:9px 12px;
+    border-radius:10px;
+    background:#e9f1f8; border:1px solid #c6d9ea; color:#24475f;
+    font-family:-apple-system, system-ui, sans-serif;
+    font-size:var(--fs-md); line-height:1.4;
+  }
   .day-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
 
   /* ACCOUNT E SALVATAGGIO */
@@ -1763,9 +1788,20 @@ function escapeHtml(s){
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function mealCardHTML(weekIdx, dayIdx, mealType){
+function mealCardHTML(weekIdx, dayIdx, mealType, closed){
   const items = planData[weekIdx].days[dayIdx].meals[mealType];
   const fixed = FIXED_MEALS.includes(mealType);
+  const toggle = `<div class="meal-toggle" data-action="toggleMeal" data-meal="${mealType}" role="button" aria-label="${closed ? 'Apri' : 'Chiudi'} ${MEAL_LABELS[mealType]}">${closed ? '▸' : '▾'}</div>`;
+  if(closed){ // chiuso a tendina: solo il nome e quanti ingredienti ha; toccandolo si riapre
+    const n = items.length;
+    return `
+    <div class="meal-card closed ${fixed ? 'fixed' : ''}" data-mealcard="${mealType}">
+      <div class="meal-header-row">
+        <p class="meal-label" data-action="toggleMeal" data-meal="${mealType}"><span class="dot"></span>${MEAL_LABELS[mealType]}<span class="meal-sum">· ${n === 0 ? 'vuoto' : n === 1 ? '1 ingrediente' : n + ' ingredienti'}</span></p>
+        <div class="meal-actions">${toggle}</div>
+      </div>
+    </div>`;
+  }
   const rows = items.map((it, idx) => ingredientRowHTML(weekIdx, dayIdx, mealType, idx, it)).join('');
   const hasIngClip = clipboard && clipboard.type === 'ingredient';
   const hasMealClip = clipboard && clipboard.type === 'meal';
@@ -1776,6 +1812,7 @@ function mealCardHTML(weekIdx, dayIdx, mealType){
         <div class="meal-actions">
           <div class="copy-btn" data-action="copyMeal" data-meal="${mealType}">⧉ Copia</div>
           ${hasMealClip ? `<div class="paste-btn" data-action="pasteMeal" data-meal="${mealType}">Incolla</div>` : ''}
+          ${toggle}
         </div>
       </div>
       ${rows}
@@ -1789,7 +1826,12 @@ function renderMain(){
   const d = week.days[currentDay];
   const date = dateForDay(currentWeek, currentDay);
   const isToday = todayIdx && todayIdx.week === currentWeek && todayIdx.dayIdx === currentDay;
-  const cards = MEAL_TYPES.map(mt => mealCardHTML(currentWeek, currentDay, mt)).join('');
+  const iso = toISODate(date);
+  const isClosed = mt => !!mealsClosed[`${iso}|${mt}`];
+  // I pasti chiusi a tendina vanno in fondo alla giornata, nel loro ordine
+  const cards = MEAL_TYPES.filter(mt => !isClosed(mt)).concat(MEAL_TYPES.filter(isClosed))
+    .map(mt => mealCardHTML(currentWeek, currentDay, mt, isClosed(mt))).join('');
+  const frozen = defrostTomorrow();
   const hasDayClip = clipboard && clipboard.type === 'day';
   const hasWeekClip = clipboard && clipboard.type === 'week';
   const weekDone = weekCompleted[currentWeek];
@@ -1801,6 +1843,7 @@ function renderMain(){
       </div>
       ${isToday ? '<span class="badge-today">Oggi</span>' : ''}
     </div>
+    ${frozen.length ? `<div class="defrost-note">❄️ Da scongelare per domani: ${escapeHtml(frozen.join(', '))}</div>` : ''}
     <div class="day-actions">
       <div class="copy-btn" id="copyDayBtn">⧉ Copia giorno</div>
       ${hasDayClip ? `<div class="paste-btn" id="pasteDayBtn">Incolla giorno</div>` : ''}
@@ -1823,6 +1866,9 @@ function setupMainContentDelegation(){
       openIngredientEditor(rowRef(moreBtn.closest('.ing-row')));
       return;
     }
+
+    const toggleMeal = e.target.closest('[data-action="toggleMeal"]');
+    if(toggleMeal){ toggleMealClosed(toggleMeal.getAttribute('data-meal')); return; }
 
     if(e.target.closest('#copyWeekBtn')){ copyWeek(currentWeek); renderMain(); return; }
     if(e.target.closest('#pasteWeekBtn')){ pasteWeekInto(currentWeek); return; }
@@ -1894,6 +1940,30 @@ function purgeEmptyRows(){
     if(kept.length !== d.meals[m].length){ d.meals[m] = kept; removed = true; }
   })));
   if(removed) saveState();
+}
+// Un ingrediente con l'alternativa scelta al posto dell'originale (solo da leggere, non ci si scrive sopra)
+function activeOf(item){ return item.useAlt && item.alt ? { ...item, name: item.alt.name, qty: item.alt.qty } : item; }
+
+// ---------- PASTI A TENDINA: chiusi per quel giorno (solo su questo telefono), finiscono in fondo alla giornata ----------
+let mealsClosed = readJSON('piano_pasti_chiusi') || {};
+function toggleMealClosed(mealType){
+  const key = `${toISODate(dateForDay(currentWeek, currentDay))}|${mealType}`;
+  if(mealsClosed[key]) delete mealsClosed[key]; else mealsClosed[key] = true;
+  const old = toISODate(new Date(now_date().getTime() - 14 * 86400000)); // si tengono solo le ultime due settimane
+  Object.keys(mealsClosed).forEach(k => { if(k.slice(0, 10) < old) delete mealsClosed[k]; });
+  writeJSON('piano_pasti_chiusi', mealsClosed);
+  renderMain();
+}
+// "Da scongelare per domani": gli ingredienti del giorno dopo che stanno nel reparto Surgelati
+function defrostTomorrow(){
+  let w = currentWeek, d = currentDay + 1;
+  if(d > 6){ d = 0; w = (w + 1) % planData.length; }
+  const names = [];
+  MEAL_TYPES.forEach(m => planData[w].days[d].meals[m].forEach(it => {
+    const name = cleanName(activeOf(it).name);
+    if(name && productInfo(name).reparto === 'surgelati' && !names.includes(name)) names.push(name);
+  }));
+  return names;
 }
 
 // ---------- PRODOTTI: nomi e quantità uniformi, reparto e conservazione ----------
@@ -2558,7 +2628,9 @@ function shopListHTML(list){
     </div>`;
   if(!list.items.length) return html + `<div class="shop-empty">Niente da comprare qui.</div>`;
   REPARTI.forEach(([rk, emoji, label]) => {
-    const group = list.items.filter(it => it.info.reparto === rk);
+    // Le voci già a posto scivolano in fondo al reparto (restando in ordine alfabetico): in cima c'è quello che manca
+    const group = list.items.filter(it => it.info.reparto === rk)
+      .map(it => [it, itemStatus(it).done]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
     if(!group.length) return;
     html += `<div class="shop-section"><h3>${emoji} ${label}</h3>`;
     group.forEach(it => {
@@ -2973,7 +3045,7 @@ document.getElementById('app').addEventListener('touchstart', e => {
 }, {passive:true});
 document.getElementById('app').addEventListener('touchend', e => {
   if(currentTab !== 'piano') return;
-  if(e.target.closest('.ing-row, .ing-add, .copy-btn, .paste-btn, .day-strip, .week-done, .plan-notes')) return;
+  if(e.target.closest('.ing-row, .ing-add, .copy-btn, .paste-btn, .meal-toggle, .meal-card.closed, .day-strip, .week-done, .plan-notes')) return;
   const dx = e.changedTouches[0].screenX - touchStartX;
   const dy = e.changedTouches[0].screenY - touchStartY;
   const isHorizontalSwipe = Math.abs(dx) > 90 && Math.abs(dx) > Math.abs(dy) * 3;
